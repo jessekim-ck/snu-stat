@@ -1,0 +1,190 @@
+---
+title: "SC19: Quiz 01"
+date: "October 16, 2019. 1:30 PM -- 2:30 PM"
+output: html_document
+---
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+library(tidyverse)
+library(GGally)
+```
+
+# Problem 1 [20 pts]
+
+### From the wine data given, reproduce the following plots as exactly as possible. Do not change size, alpha, and coordinate range from the default setting.
+
+```{r, echo = TRUE, message= FALSE}
+wine <- read_csv("./quiz-1.csv")
+head(wine)
+```
+
+
+**a) [8 pts]**
+
+```{r}
+ggplot(wine, aes(volatile_acidity, residual_sugar, color=quality)) +
+  geom_point() +
+  facet_wrap(.~type, nrow=2) +
+  scale_x_log10() +
+  scale_y_log10()
+
+```
+
+
+**b) [12 pts]**
+
+```{r}
+ggplot(wine, aes(x=type)) +
+  geom_bar(aes(fill=quality), position="dodge") +
+  coord_flip() +
+  labs(
+    title = "Summary on wine qualities",
+    subtitle = "119 red wines, 224 white wines",
+    x = NULL,
+    y = NULL
+  ) +
+  theme(legend.position = "top")
+
+```
+
+
+# Problem 2 [20 pts]
+
+### We give you the following `lam_wf` data; every subproblem in problem 2 uses this dataset. This data set is the simplified version of the datasets that consists of the engineering variables from a LAM 9600 Metal Etcher over the course of etching 129 wafers. For more information about the original data set, please see:
+
+```
+B.M. Wise, N.B. Gallagher, S.W. Butler, D.D. White, Jr. and G.G. Barna, \"A Comparison of Principal Components Analysis, Multi-way Principal Components Analysis, Tri-linear Decomposition and Parallel Factor Analysis for Fault Detection in a Semiconductor Etch Process\", J. Chemometrics, in press, 1999
+```
+
+```{r, echo = TRUE, message= FALSE}
+lam_wf <- read.csv('./lam_data.csv')
+lam_wf %>% head
+```
+
+
+**a) [10 pts]**
+
+```{r}
+lam_wf %>% 
+  group_by(batch_id) %>% 
+  arrange(batch_id, Time) %>% 
+  mutate(
+    nearest_time = lag(Time),
+    time_diff = abs(Time - nearest_time)
+  ) %>% 
+  summarize(
+    mean_time_diff = mean(time_diff, na.rm = TRUE)
+  ) %>% 
+  arrange(desc(mean_time_diff))
+  
+```
+
+> Batch l2903.txm	has maximum mean time difference with 1.06
+
+**b) [10 pts]**
+
+```{r}
+lam_wf %>% 
+  group_by(batch_id, Step_Number) %>% 
+  summarize(mean_pressure = mean(Pressure)) %>% 
+  group_by(batch_id) %>% 
+  filter(min_rank(desc(mean_pressure)) == 1)
+```
+
+> 4 is the most common step number that showed maximum mean pressure.
+
+## Problem 3 [20 pts]
+
+### To consider factors affecting students' score, one collects `students` data from a class.
+
+```{r, echo = TRUE, message= FALSE}
+students_columns <- c(
+  "student_number", # index of student
+  "absence",        # number of absence
+  "age",            # age in years
+  "alcohol",        # average bottles student drinks in a week
+  "major",          # major
+  "studytime",      # average hours student study in a week
+  "retake",         # does student retake this course?
+  "score"           # score
+)
+
+students <- read_csv("./students.csv", col_types = cols(),
+  col_names = students_columns) %>%
+  mutate(
+    absence = as.factor(absence),
+    alcohol = as.factor(alcohol)
+  )
+
+students
+
+```
+
+**a) [4 pts] **
+
+```{r}
+summary(students)
+
+students %>% 
+  arrange(desc(age))
+
+students <- students %>% filter(student_number != 34)
+```
+
+> There is a student with age 200, which is hardly possible. The student number is 34, so I deleted the row.
+
+**b) [4 pts]**
+
+```{r}
+(tbl <- as.tbl(students[c("studytime", "retake", "score")]))
+
+ggpairs(
+  tbl,
+  upper = list(
+    combo = "box_no_facet"
+  ),
+  diag = list(
+    continuous = "barDiag"
+  ),
+  lower = list(
+    continuous = "smooth"
+  )
+)
+
+```
+
+> "yes" with retake have higher mean studytime than with "no". And "yes" with retake also have higher mean score than with "no". Studytime have a positive corrleation with score, but with some variance.
+
+**c) [4 pts]**
+
+```{r}
+ggplot(students, aes(studytime, score)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  facet_grid(~major)
+```
+
+> Still show positive correlation, except for the those who majored in "C" or "D".
+
+**d) [4 pts]**
+
+```{r}
+ggplot(students, aes(alcohol, score)) +
+  geom_boxplot()
+```
+
+> More alcohol is related with less score.
+
+**e) [4 pts]**
+
+```{r}
+ggplot(students, aes(absence, score)) +
+  geom_dotplot(
+    binaxis = "y",
+    stackdir = "center"
+  )
+```
+
+> More absence is related with less score.

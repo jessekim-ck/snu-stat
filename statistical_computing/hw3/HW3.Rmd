@@ -1,0 +1,449 @@
+---
+title: "HW3"
+author: "jessekim"
+date: "11/8/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(forcats)
+library(lubridate)
+library(hms)
+```
+
+## Chapter 13
+
+### 13.2.1
+
+#### 1
+
+```{r}
+head(nycflights13::flights)
+head(nycflights13::airports)
+
+nycflights13::flights %>% 
+  left_join(
+    nycflights13::airports,
+    by = c("origin" = "faa")
+  ) %>%
+  left_join(
+    nycflights13::airports,
+    by = c("dest" = "faa"),
+    suffix = c("_origin", "_dest")
+  ) %>% 
+  select(
+    year, month, day, sched_dep_time, origin, lat_origin, lon_origin, dest, lat_dest, lon_dest
+  )
+```
+
+> We can combine `flights` data with `airports` data, by `origin` and `dest` of `flights` equals to `faa` of `airports` data respectively. Then we can calculate the straight distance between `origin` and `dest` with latitude and longitude information.
+
+
+### 13.3.1
+
+#### 2
+
+```{r}
+Lahman::Batting %>% 
+  group_by(playerID, yearID, stint) %>% 
+  summarize(n = n()) %>% 
+  filter(n > 1)
+```
+
+> 1. Lahman::Batting: (`playerID`, `yearID`, `stint`)
+
+```{r}
+babynames::babynames %>% 
+  group_by(year, sex, name) %>% 
+  summarize(n = n()) %>% 
+  filter(n > 1)
+```
+
+> 2. babynames::babynames: (`year`, `sex`, `name`)
+
+```{r}
+nasaweather::atmos
+
+nasaweather::atmos %>% 
+  group_by(lat, long, year, month) %>% 
+  summarize(n = n()) %>% 
+  filter(n > 1)
+```
+
+> 3. (`lat`, `long`, `year`, `month`)
+
+```{r}
+fueleconomy::vehicles %>% 
+  group_by(id) %>% 
+  summarize(n = n()) %>% 
+  filter(n > 1)
+```
+
+> 4. (`id`)
+
+```{r}
+ggplot2::diamonds %>% 
+  group_by(carat, cut, color, clarity, depth, table, price, x, y, z) %>% 
+  summarize(n = n()) %>% 
+  filter(n > 1)
+```
+
+> No key
+
+
+### 13.4.6
+
+#### 3
+
+```{r}
+nycflights13::flights %>% 
+  left_join(
+    nycflights13::planes,
+    by = c("tailnum" = "tailnum"),
+    suffix = c("", "_planes")
+  ) %>% 
+  mutate(
+    plane_age = year - year_planes
+  ) %>% 
+  group_by(plane_age) %>% 
+  summarize(
+    mean_dep_dely = mean(dep_delay, na.rm = TRUE)
+  ) %>% 
+  ggplot(aes(plane_age, mean_dep_dely)) + 
+  geom_point(na.rm = TRUE)
+```
+
+> There is a mean increase of delay as the age of plane increases from 0 to about 10. But then the mean delay increases as planes get older than 10.
+
+### 13.5.1
+
+#### 1
+
+```{r}
+nycflights13::flights %>% 
+  filter(is.na(tailnum))
+```
+
+> Flights that don't have `tailnum` also do not have `dep_time` and `arr_time`. It means that the flight has been cancelled.
+
+```{r}
+nycflights13::flights %>% 
+  anti_join(
+    nycflights13::planes,
+    by = "tailnum"
+  ) %>% 
+  group_by(carrier) %>% 
+  summarize(n = n()) %>% 
+  arrange(-n)
+```
+
+> The `carrier` of the flights is one of `MQ` or `AA` mostly.
+
+---
+
+## Chapter 14
+
+### 14.2.5
+
+#### 2
+
+```{r}
+ironman <- c("I", "am", "iron", "man")
+count <- c("1", "2", "3", "4")
+
+str_c(ironman)
+str_c(count, ironman, sep = ", ")
+str_c(count, ironman, collapse = ", ")
+```
+
+> `sep` argument is used when combining two string vectors into single string vector, inserted between the matching vectors.
+
+> `collapse` argument is used when combining a string vector into string data, inserted between each element of the vector.
+
+
+### 14.3.1.1
+
+#### 1
+
+> To express / as a charactor in R, we need to escape the charactor like "//". However, to express / as a charactor in R, we need to escape the charactor agian as "//". So we need two '/'s that regex can understand, and as / for regex is expressed as "//" for R, the expression becomes "////".
+
+
+### 14.3.2.1
+
+#### 2
+
+```{r}
+# 1.
+str_view(stringr::words, "^y", match = TRUE)
+
+# 2.
+str_view(stringr::words, "x$", match = TRUE)
+
+# 3.
+str_view(stringr::words, "^...$", match = TRUE)
+
+# 4.
+str_view(stringr::words, ".{7,}", match = TRUE)
+```
+
+
+### 14.3.3.1
+
+#### 3
+
+```{r}
+str_view(stringr::words, "q[^u]", match = TRUE)
+```
+
+> Yes. "q" is always followed by "u" in the data.
+
+
+### 14.3.4.1
+
+#### 3
+
+```{r}
+# 1.
+str_view(stringr::words, "^[^aeiou]{3}", match = TRUE)
+
+# 2.
+str_view(stringr::words, "[aeiou]{3,}", match = TRUE)
+
+# 3.
+str_view(stringr::words, "([aeiou][^aeiou]){2,}", match = TRUE)
+```
+
+
+### 14.3.5.1
+
+#### 2
+
+```{r}
+# 1.
+str_view(stringr::words, "^(.)($|.*\\1$)", match = TRUE)
+
+# 2.
+str_view(stringr::words, "(..).*\\1", match = TRUE)
+
+# 3.
+str_view(stringr::words, "(.).*\\1.*\\1", match = TRUE)
+```
+
+
+### 14.4.1.1
+
+#### 2
+
+```{r}
+word_vowels <- tibble(
+  word = stringr::words
+  ) %>% 
+  mutate(
+    vowels = str_count(word, "[aeiou]"),
+    length = str_length(word),
+    vowel_prop = vowels/length
+  )
+```
+
+```{r}
+word_vowels %>% arrange(-vowels) %>% filter(vowels == max(vowels))
+```
+
+> These words has the highest number of vowels with 5.
+
+```{r}
+word_vowels %>% arrange(-vowel_prop)
+```
+
+> "a" has the highest propportion of vowels with 1.
+
+
+### 14.4.2.1
+
+#### 1
+
+```{r}
+colours <- c("red", "orange", "yellow", "green", "blue", "purple")
+(colour_match <- str_c("( ", colours, "|", colours, " )", collapse = "|"))
+
+sentences[str_count(sentences, colour_match) > 1]
+```
+
+> Filter the word only with whitespace following or followed.
+
+
+### 14.4.3.1
+
+#### 1
+
+```{r}
+numbers <- c("one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve")
+number_match <- str_c("\\b(", str_c(numbers, collapse = "|"), ") [^ |.]{1,}", sep = "")
+
+stringr::sentences[!is.na(str_extract(stringr::sentences, number_match))] %>% 
+  str_extract(number_match)
+```
+
+
+### 14.4.4.1
+
+#### 3
+
+```{r}
+str_replace(stringr::words, "(.)(.*)(.)", "\\3\\2\\1") %>% 
+  intersect(stringr::words)
+```
+
+> The words in which the first letter and the last letter are same are still words.
+
+
+### 14.4.5.1
+
+#### 1
+
+```{r}
+str_split("apples, pears, and bananas", "(, |and ){1,}")
+```
+
+
+---
+
+
+## Chapter 15
+
+### 15.3.1
+
+#### 1
+
+```{r}
+gss_cat %>% 
+  ggplot(aes(rincome)) +
+  geom_bar()
+```
+
+> There are too many values that the value label of x-axis is impossible to see. We can rotate the label of x-axis.
+> Reference: https://www.datanovia.com/en/blog/ggplot-axis-ticks-set-and-rotate-text-labels/
+
+```{r}
+gss_cat %>% 
+  ggplot(aes(rincome)) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+### 15.4.1
+
+#### 2
+
+```{r}
+factors <- c()
+
+for (i in 1:length(gss_cat)) {
+  if (is.factor(gss_cat[[i]])) {
+    factors <- c(factors, i)
+  }
+}
+
+colnames(gss_cat[factors])
+```
+
+> These are the factors of `gss_cat`.
+
+```{r}
+for (i in factors) {
+  colname <- colnames(gss_cat[i])
+  cat("Factor:", colname, "\n")
+  print(levels(gss_cat[[i]]))
+  cat("\n")
+  
+  print(
+    ggplot(gss_cat, aes(get(colname))) + 
+      geom_bar() +
+      ggplot2::xlab(label = colname) +
+      theme(axis.text.x = element_text(angle = 90))
+  )
+}
+```
+
+> `rincome`, `partyid` are principled by its order of the value. Other factors seem to have no strict priciple.
+
+### 15.5.1
+
+#### 1
+
+```{r}
+gss_party <- gss_cat %>% 
+  mutate(
+    party = fct_recode(
+      partyid,
+      "Democrat" = "Strong democrat",
+      "Democrat" = "Not str democrat",
+      "Independent" = "Ind,near dem",
+      "Independent" = "Ind,near rep",
+      "Republican" = "Not str republican",
+      "Republican" = "Strong republican"
+    )
+  ) %>% 
+  group_by(year, party) %>% 
+  summarize(n = n()) %>% 
+  spread(party, n) %>% 
+  mutate(
+    n = sum(`No answer`, `Don't know`, `Other party`, `Republican`, `Independent`, `Democrat`, na.rm=TRUE)
+  ) %>% 
+  transmute(
+    Republican = Republican/n,
+    Independent = Independent/n,
+    Democrat = Democrat/n
+  )
+
+gss_party
+  
+gss_party %>% 
+  ggplot(aes(x = year)) +
+  geom_line(aes(y = Republican), color="blue") +
+  geom_line(aes(y = Independent), color="grey") +
+  geom_line(aes(y = Democrat), color="red")
+
+  
+```
+
+
+### 16.2.4
+
+#### 2
+
+```{r}
+today(tzone = "GMT")
+today(tzone = "Asia/Seoul")
+```
+
+> `tzone` argument sets timezone we would like to get the current date from. When timezone is not correctly set, you can be using the date of another timezone, which would lead to misleading results.
+
+### 16.3.4
+
+#### 6
+
+```{r}
+ggplot(diamonds, aes(carat)) + geom_bar()
+
+ggplot(nycflights13::flights, aes(sched_dep_time)) + geom_bar(na.rm = TRUE) + ggplot2::xlim(c(500, 2000))
+
+```
+
+> They similarly suffer from the rounding bias. Maybe recorders tend to round the values to familiar numbers like 0, 1, 5, 10, 15, 20, and so on.
+
+
+### 16.4.5
+
+#### 4
+
+```{r}
+birthdate_to_age <- function (birthdate) {
+  year(today()) - year(birthdate) + 1
+}
+
+birthdate_to_age(as_date("1994-05-14"))
+```
+

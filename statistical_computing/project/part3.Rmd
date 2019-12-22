@@ -1,0 +1,376 @@
+---
+title: '326.212 Final Project: Part 3'
+output: html_document
+---
+
+## 2013-11086 김찬규
+
+```{r setup}
+library(RSQLite)
+library(DBI)
+library(tidyverse)
+library(lubridate)
+library(zoo)
+library(modelr)
+library(stringr)
+con <- dbConnect(SQLite(), "project.sqlite")
+```
+
+## Part 3. Advanced Questions (100 pts)
+
+### Q1. When is the best time of day/day of week/time of year to fly to minimise delays? (50 pts)
+
+Let's assume that we care about arrival delays other than departure delays.
+
+```{r eval=TRUE}
+# Sampling from original data
+flights <- dbGetQuery(
+    con, "SELECT * FROM flights ORDER BY RANDOM() LIMIT 100000;"
+  ) %>% 
+  filter(
+    Arr_Delay >= 0
+  )
+```
+
+```{r eval=FALSE}
+# We can use this code instead for population data
+flights <- tbl(con, "flights")
+```
+
+```{r}
+# Mean delays for each year
+flights %>% 
+  group_by(Year) %>% 
+  summarize(mean_delay = mean(Arr_Delay)) %>% 
+  ggplot(aes(Year, mean_delay)) +
+  geom_point()
+```
+
+There is a strong tendency that arrival delay times increase year by year. So First we get rid of the yearly effect on delay to get results which is independent from yearly effect. 
+
+```{r}
+# Linear model for yearly effect
+mod1 <- lm(Arr_Delay ~ Year + I(Year**2) + I(Year**3), flights)
+summary(mod1)
+```
+
+```{r}
+# Get rid of yearly effect
+delays <- flights %>% 
+  add_residuals(mod1, var = "arr_delay")
+
+delays %>%
+  group_by(Year) %>% 
+  summarize(mean_delay = mean(arr_delay, na.rm = TRUE)) %>% 
+  ggplot(aes(Year, mean_delay)) +
+  geom_point()
+```
+
+I also doubt that daily/monthly number of flights affect delay times. This could lead to misleading results if not considered.
+
+```{r}
+# Daily mean delays
+daily_delays <- delays %>% 
+  group_by(Year, Month, Day_of_Month) %>% 
+  summarize(
+    daily_counts = n(),
+    mean_delay = mean(arr_delay, na.rm = TRUE)
+  )
+
+daily_delays %>% 
+  ggplot(aes(daily_counts, mean_delay)) +
+  geom_smooth(na.rm = TRUE) +
+  geom_point(na.rm = TRUE) +
+  coord_cartesian(ylim = c(-50, 200))
+  
+mod2 <- lm(mean_delay ~ daily_counts, daily_delays)
+summary(mod2)
+```
+
+It seems that the number of daily flights and mean delays are postively correlated. That is, one more flight per day increases mean delay by about 0.9 minutes in average.
+
+```{r}
+# Monthly mean delays
+monthly_delays <- delays %>% 
+  group_by(Year, Month) %>% 
+  summarize(
+    monthly_counts = n(),
+    mean_delay = mean(arr_delay, na.rm = TRUE)
+  )
+
+monthly_delays %>% 
+  ggplot(aes(monthly_counts, mean_delay)) +
+  geom_smooth(na.rm = TRUE) +
+  geom_point(na.rm = TRUE)
+  
+mod3 <- lm(mean_delay ~ monthly_counts, monthly_delays)
+summary(mod3)
+```
+
+It seems that the number of monthly flights also affect mean delays. That is, 100 more flights per month would increase delay by about 5.5 minutes in average.
+
+So in order to inspect the affect of `time of day` holding the number of daily/monthly flights constant, it is reasonable to get rid of the affect of the nubmer of flights.
+
+```{r}
+# Get rid of number of flights effect
+delays_with_counts <- delays %>%
+  group_by(Year, Month, Day_of_Month) %>% 
+  mutate(
+    daily_count = n()
+  ) %>% 
+  ungroup() %>% 
+  group_by(Year, Month) %>% 
+  mutate(
+    monthly_count = n()
+  ) %>% 
+  ungroup() %>% 
+  mutate(
+    dep_hour = substring(Dep_Time, 1, 2) %>% parse_integer(),
+    dep_ten_minute = substring(Dep_Time, 3, 3) %>% parse_integer()
+  )
+
+mod4 <- lm(arr_delay ~ daily_count + monthly_count, delays_with_counts)
+summary(mod4)
+
+delays_timod <- delays_with_counts %>% 
+  add_residuals(mod4)
+```
+
+```{r}
+# Plot for delay on time
+delays_timod %>% 
+  group_by(dep_hour, dep_ten_minute) %>% 
+  filter(n() > 5) %>% 
+  mutate(
+    mean_delay = mean(resid, na.rm = TRUE),
+    hm = dep_hour*100 + dep_ten_minute*10
+  ) %>% 
+  ggplot(aes(hm, mean_delay)) +
+  geom_point()
+```
+
+Average delays for flights are smallest at 05:00, which is the very start of a day. Then mean delay monotonously increases with the time of the day. So you would better take a flight which departs as early as possible if you care about the arrival delay time.
+
+In order to inspect the affect of `day of week` to arrival delay, it is reasonable to remove the affect of monthly flights.
+
+```{r}
+# Get rid of monthly count effect only
+mod5 <- lm(arr_delay ~ monthly_count, delays_with_counts)
+summary(mod5)
+
+delays_daow <- delays_with_counts %>% 
+  add_residuals(mod5)
+```
+
+```{r}
+# Plot for delay on weekday
+delays_daow %>% 
+  ggplot(aes(Day_Of_Week, resid)) +
+  geom_boxplot(aes(group = Day_Of_Week, middle = mean(resid))) +
+  coord_cartesian(ylim = c(-30, 20))
+```
+
+```{r}
+# Summary table for delay on weekday
+delays_daow %>% 
+  group_by(Day_Of_Week) %>% 
+  summarize(
+    mean_delay = mean(resid, na.rm = TRUE),
+    sd_mean_delay = sd(resid, na.rm = TRUE)/sqrt(n()),
+    CI_inf = mean_delay - 1.96*sd_mean_delay,
+    CI_sup = mean_delay + 1.96*sd_mean_delay
+  ) %>% 
+  arrange(mean_delay)
+```
+
+The table is mean and confidence interval at 95% significance level for effect of `day of week` on delay times. As above, mean arrival delay is smallest for Saturday with about -3 minutes effect. Thursday's effect is biggest with about 1.35 minutes. So you could save about 3 minutes by taking a flight on Saturday.
+
+
+Now let's inspect the affect of month to delays.
+
+```{r}
+# Plot for delay on month
+delays %>% 
+  group_by(Year, Month) %>% 
+  summarize(
+    mean_delay = mean(arr_delay, na.rm = TRUE)
+  ) %>% 
+  ggplot(aes(Month, mean_delay)) +
+  geom_line(aes(group = Year, color = Year)) +
+  geom_line(
+    data = delays %>% 
+      group_by(Month) %>% 
+      summarize(mean_delay = mean(arr_delay)),
+    color = "red"
+  )
+```
+
+It is obvious that there is a pattern in which delay times are quite big during summertime, while delay times are quite small during spring or fall. Looking at the red line, delay for October is expected to be smallest among months.
+
+```{r}
+# Summary table for delay on month
+delays %>% 
+  group_by(Month) %>% 
+  summarize(
+    mean_delay = mean(arr_delay),
+    sd_mean_delay = sd(arr_delay)/sqrt(n()),
+    CI_inf = mean_delay - 1.96*sd_mean_delay,
+    CI_inf = mean_delay + 1.96*sd_mean_delay
+  ) %>% 
+  arrange(mean_delay)
+```
+
+Specifically, you are expected to save about 4.3 minutes on average by taking a flight on Octover.
+
+
+### Q2. Do older planes suffer more delays? (50 pts)
+
+```{r}
+# Calculate airplane age
+flights_age <- tbl(con, "flights") %>% 
+  inner_join(
+    tbl(con, "airplanes") %>% filter(!is.na(Year), Year > 0),
+    by = c("Tail_Num" = "TailNum"),
+    suffix = c("", ".airplanes")
+  ) %>% 
+  mutate(
+    Age = Year - Year.airplanes
+  ) %>% 
+  select(
+    Year, 
+    Month, 
+    Day_of_Month,
+    Age, 
+    Dep_Delay,
+    Origin, 
+    Dest,
+    Op_Unique_Carrier, 
+    Cancelled,
+    Tail_Num
+  )
+
+delays_age <- flights_age %>% 
+  group_by(Age) %>% 
+  summarize(
+    mean_delay = mean(Dep_Delay, na.rm = TRUE),
+    counts = n()
+  ) %>% 
+  filter(
+    counts > 5,
+    Age >= 0
+  ) %>% 
+  collect()
+
+delays_age
+```
+
+
+```{r}
+# Plot for delay on age
+delays_age %>% 
+  ggplot(aes(Age, mean_delay)) +
+  geom_smooth(na.rm = TRUE) +
+  geom_point(na.rm = TRUE) +
+  ggplot2::ylim(5, 15)
+```
+
+It seems that older planes suffer more delays given the age of planes between 0 and 20. But we can pose two questions: 1) what if the relationship is affected by other variables, such as airport and airlines? 2) why the mean delay drops after age 20? 
+
+To deal with the first question, we can inspect the effect of a doubtful variable. Let's fit a model by regressing delays on origin airports and airlines. Here I fit a model with a sample with size 100,000 because of memory problem.
+
+```{r}
+# Data preprocessing for model fitting
+flights_age_sample <- dbGetQuery(
+    con, 
+    "SELECT * FROM flights ORDER BY RANDOM() LIMIT 100000;"
+  ) %>% 
+  inner_join(
+    tbl(con, "airplanes") %>% filter(!is.na(Year), Year > 0) %>% collect(),
+    by = c("Tail_Num" = "TailNum"),
+    suffix = c("", ".airplanes")
+  ) %>% 
+  mutate(
+    Age = Year - Year.airplanes,
+    Origin = factor(Origin),
+    Op_Unique_Carrier = factor(Op_Unique_Carrier)
+  ) %>% 
+  filter(!is.na(Op_Unique_Carrier)) %>% 
+  select(
+    Year, 
+    Month, 
+    Day_of_Month,
+    Age, 
+    Dep_Delay,
+    Origin, 
+    Dest,
+    Op_Unique_Carrier, 
+    Cancelled,
+    Tail_Num
+  ) %>% 
+  group_by(Origin) %>% 
+  filter(n() > 1) %>% 
+  ungroup() %>% 
+  group_by(Op_Unique_Carrier) %>% 
+  filter(n() > 1) %>% 
+  ungroup()
+
+# Model for delay on airports/airlines
+mod6 <- lm(
+  Dep_Delay ~ Origin + Op_Unique_Carrier,
+  flights_age_sample
+)
+summary(mod6)
+```
+
+```{r}
+# Plot for delay on age - airports/airlines effects removed
+flights_age_sample %>% 
+  add_residuals(mod6) %>% 
+  group_by(Age) %>% 
+  mutate(
+    mean_delay = mean(Dep_Delay, na.rm = TRUE),
+    counts = n()
+  ) %>% 
+  filter(counts > 5) %>% 
+  ggplot(aes(Age, mean_delay)) +
+  geom_smooth(na.rm = TRUE) +
+  geom_point(na.rm = TRUE) +
+  ggplot2::ylim(5, 15)
+```
+
+It seems that the trend of graph is almost the same. Actually, the model does not explain the data well. We can conclude that older airplanes tend to suffer more delays given that the ages under about 20 years. The difference is at most about 3 minutes in average (between newborn airplanes and 20 year old airplanes).
+
+Now let's look at the flights with airplanes older than 20 years, to deal with the first question.
+
+```{r}
+delays_age %>% 
+  filter(Age > 20)
+```
+
+```{r}
+# Standard deviation of delay for older airplanes
+delays_age %>% 
+  filter(Age > 20) %>% 
+  summarize(
+    sd = sd(mean_delay, na.rm = TRUE),
+    counts = sum(counts)
+  )
+```
+
+```{r}
+# Standard deviation of delay for younger airplanes
+delays_age %>% 
+  filter(Age <= 20) %>% 
+  summarize(
+    sd = sd(mean_delay, na.rm = TRUE),
+    counts = sum(counts)
+  )
+```
+
+Nothing looks so weired, but the variance of delays among older planes (more than 20 years old) are about 750% higher than the variance of delays among younger planes (at most 20 years old). We can guess that airlines would give more attention to older planes so that delays could be prevented early. However, even with this attention, older planes sometimes cause delays more than an hour.
+
+Moreover, because the number of old flights is quite small, it can be said that the older airplanes suffer more delay on average in a range that most of the data reside in.
+
+```{r}
+dbDisconnect(con)
+```

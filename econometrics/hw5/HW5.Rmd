@@ -1,0 +1,518 @@
+---
+title: "HW5"
+author: "jessekim"
+date: "11/30/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(AER)
+library(car)
+library(tidyverse)
+smoking <- readxl::read_excel("./data/smoking.xlsx")
+fertility <- readxl::read_excel("./data/fertility.xlsx")
+```
+
+# HW5 / Chankyu Kim (2013-11086)
+
+## 1. E.11.4
+
+### a.
+
+Regression (4)
+
+- Men: $\Phi(-1.027 - 0.242) = \Phi(-1.269) = 0.1022 = 10.22%$
+- Women: $\Phi(-1.027) = 0.1522 = 15.22%$
+
+Regression (5)
+
+- Men: $\frac{1}{1 + e^{1.717+0.455}} = \frac{1}{1 + e^{2.172}} = 0.1023 = 10.23%$
+- Women: $\frac{1}{1 + e^{1.717}} = 0.1522 = 15.22%$
+
+Regression (6)
+
+- Men: $0.152 - 0.050 = 0.102 = 10.2%$
+- Women: $0.152 - 15.2%$
+
+### b.
+
+The estimations from the model (4) through (6), as shown above, are very similar. Considering that the models only have binary variable `Male`, it can be said that the models are not different. That is, `Male` variable can only have the value of 0 or 1, and the corresponding results are so close that the models are very similar.
+
+However, in terms of graph of the models, the model (4) and (5) are quite different from the model (6), as the model (4) and (5) are nonlinear and (6) is linear.
+
+
+## 2. E.11.6
+
+$$
+\hat{Pr(deny = 1 | P/I, black)} = \Phi(-2.26 + 2.74P/I + 0.71black)
+$$
+
+### a.
+
+$$
+\Phi(-2.26 + 2.74*0.35 + 0.71) = \Phi(-0.591) = 0.2773 = 27.73\%
+$$
+
+### b.
+
+The new probability is:
+
+$$
+\Phi(-2.26 + 2.74*0.30 + 0.71) = \Phi(-0.728) = 23.33\%
+$$
+
+Thus the effect is $27.73 - 23.33 = 4.4\%$ decrease in the probability.
+
+### c.
+
+The probability for P/I ratio of 0.35:
+
+$$
+\Phi(-2.26 + 2.74*0.35) = \Phi(-1.301) = 9.66\%
+$$
+
+The probability for P/I ratio of 0.30:
+
+$$
+\Phi(-2.26 + 2.74*0.30) = \Phi(-1.438) = 7.52\%
+$$
+
+Thus the effect is $9.66 - 7.52 = 2.14\%$ decrease in the probability.
+
+### d.
+
+The marginal effect is bigger when the `z-value` is near 0. Thus the marginal effect is bigger for black people given the same P/I ratio.
+
+
+## 3. EE.11.2
+
+```{r}
+head(smoking)
+```
+
+### a.
+
+```{r}
+# (1)
+smoking$smoker %>% mean()
+
+# (2)
+smoking %>% 
+  filter(smkban == 1) %>%
+  .$smoker %>% mean()
+
+# (3)
+smoking %>% 
+  filter(smkban == 0) %>% 
+  .$smoker %>% mean()
+```
+
+- (i) The probability of smoking for all workers: 24.23%
+- (ii) The probability of smoking for workers affected by bans: 21.20%
+- (iii) The probability of smoking for workers not affected by bans: 28.96%
+
+### b.
+
+```{r}
+mod1 <- lm(smoker ~ smkban, smoking)
+summary(mod1)
+```
+
+The difference is 7.76%, and it is statistically significant with t-value of 8.863.
+
+### c.
+
+```{r}
+mod2 <- lm(
+  smoker ~ 
+    smkban + 
+    female +
+    age +
+    I(age^2) +
+    hsdrop +
+    hsgrad +
+    colsome +
+    colgrad +
+    black +
+    hispanic,
+  smoking
+)
+summary(mod2)
+```
+
+The estimated difference is 4.72% now, decreased from the regression from (b).
+
+The regression from (b) may suffer from omitted variable bias with the significant variables in the regression above, like `female`, `age`, educational status and so forth. For example, it is plausible that workplaces where highly educated people work would have higher ratio of smoking bans, whie educational status determines the smoking rate.
+
+### d.
+
+As the p-value of coefficient of regression `smkban` is less than 0.025, the null hypothesis that the coefficient is zero can be rejected at the 5% significance level. Actually, the p-value is sufficiently small that the null hypothesis can be rejected also at the 1% significance level.
+
+### e.
+
+```{r}
+linearHypothesis(
+  mod2,
+  c(
+    "hsdrop = 0",
+    "hsgrad = 0",
+    "colsome = 0",
+    "colgrad = 0"
+  ),
+  white.adjust = TRUE
+)
+
+```
+
+The null hypothesis that all education-related coefficients are zero is rejected at the 1% significance level with F statistic of 139.89.
+
+As the coefficients are greater for lower education levels, the possibility of smoking increases. That is, the group of `colgrad` level has the probability 4.48% higher than the highest group(with a Master's degree or higher), the group of `colsome` level has the probability 16.43% higher than the highest group, and so on.
+
+### f.
+
+```{r}
+mod3 <- glm(
+  smoker ~ smkban,
+  family = binomial(link = "probit"),
+  smoking
+)
+
+mod4 <- glm(
+  smoker ~ 
+    smkban + 
+    female +
+    age +
+    I(age^2) +
+    hsdrop +
+    hsgrad +
+    colsome +
+    colgrad +
+    black +
+    hispanic,
+  family = binomial(link = "probit"),
+  smoking
+)
+
+summary(mod3)
+summary(mod4)
+```
+
+The coefficient for regressor `smkban` increased from -0.5546 to -0.1586 as the model contains individual characteristic variables. The first regression might also suffer from omitted variable bias. Here the size of the coefficients are hardly interpretable, but the increasement of the coefficient implies that the effect of `smkban` decreased.
+
+The z-value of `smkban` is -5.467, thus the null hypothesis that the coefficient is zero is reject at the 1% significance level.
+
+```{r}
+linearHypothesis(
+  mod4,
+  c(
+    "hsdrop = 0",
+    "hsgrad = 0",
+    "colsome = 0",
+    "colgrad = 0"
+  ),
+  white.adjust = TRUE
+)
+
+```
+
+The F-test rejects the null hypothesis that the probability of smoking does not depend on the level of education is rejected at the 1% significance level. Also the decreasing size of coefficients for higher level of education implies that the probability of smoking decreases as the education level increases.
+
+
+### g.
+
+```{r}
+mod5 <- glm(
+  smoker ~ smkban,
+  family = binomial(link = "logit"),
+  smoking
+)
+
+mod6 <- glm(
+  smoker ~ 
+    smkban + 
+    female +
+    age +
+    I(age^2) +
+    hsdrop +
+    hsgrad +
+    colsome +
+    colgrad +
+    black +
+    hispanic,
+  family = binomial(link = "logit"),
+  smoking
+)
+
+summary(mod5)
+summary(mod6)
+```
+
+The coefficient for regressor `smkban` increased from -0.4153 to -0.2620 as the model contains individual characteristic variables. The first regression might also suffer from omitted variable bias. Here the size of the coefficients are hardly interpretable, but the increasement of the coefficient implies that the effect of `smkban` decreased.
+
+The z-value of `smkban` is -5.314, thus the null hypothesis that the coefficient is zero is reject at the 1% significance level.
+
+```{r}
+linearHypothesis(
+  mod6,
+  c(
+    "hsdrop = 0",
+    "hsgrad = 0",
+    "colsome = 0",
+    "colgrad = 0"
+  ),
+  white.adjust = TRUE
+)
+
+```
+
+The F-test rejects the null hypothesis that the probability of smoking does not depend on the level of education is rejected at the 1% significance level. Also the decreasing size of coefficients for higher level of education implies that the probability of smoking decreases as the education level increases.
+
+### h.
+
+(i)
+
+```{r}
+tibble(
+  `smkban` = c(0, 1), 
+  `female` = 0,
+  `age` = 20,
+  `hsdrop` = 1,
+  `hsgrad` = 0,
+  `colsome` = 0,
+  `colgrad` = 0,
+  `black` = 0,
+  `hispanic` = 0
+) %>% 
+  predict(mod4, ., type = "response")
+```
+
+The probability without ban is 46.41%, ane the probability with ban is 40.18%. The effect is 6.23% decrease in probability.
+
+(ii)
+
+```{r}
+tibble(
+  `smkban` = c(0, 1), 
+  `female` = 1,
+  `age` = 40,
+  `hsdrop` = 0,
+  `hsgrad` = 0,
+  `colsome` = 0,
+  `colgrad` = 1,
+  `black` = 1,
+  `hispanic` = 0
+) %>% 
+  predict(mod4, ., type = "response")
+```
+
+The probability without ban is 14.37%, ane the probability with ban is 11.08%. The effect is 3.29% decrease in probability.
+
+(iii)
+
+```{r}
+# Mr.A
+tibble(
+  `smkban` = c(0, 1), 
+  `female` = 0,
+  `age` = 20,
+  `hsdrop` = 1,
+  `hsgrad` = 0,
+  `colsome` = 0,
+  `colgrad` = 0,
+  `black` = 0,
+  `hispanic` = 0
+) %>% 
+  predict(mod2, ., type = "response")
+
+# Ms.B
+tibble(
+  `smkban` = c(0, 1), 
+  `female` = 1,
+  `age` = 40,
+  `hsdrop` = 0,
+  `hsgrad` = 0,
+  `colsome` = 0,
+  `colgrad` = 1,
+  `black` = 1,
+  `hispanic` = 0
+) %>% 
+  predict(mod2, ., type = "response")
+```
+
+Mr.A's probability without smoking ban is 44.94%, and the probability with ban is 40.21%. The effect is 4.73%.
+
+Ms.B's probability without smoking ban is 14.57%, and the probability with ban is 9.87%. The effect is 4.70%.
+
+(iv)
+
+```{r}
+# Mr.A
+tibble(
+  `smkban` = c(0, 1), 
+  `female` = 0,
+  `age` = 20,
+  `hsdrop` = 1,
+  `hsgrad` = 0,
+  `colsome` = 0,
+  `colgrad` = 0,
+  `black` = 0,
+  `hispanic` = 0
+) %>% 
+  predict(mod6, ., type = "response")
+
+# Ms.B
+tibble(
+  `smkban` = c(0, 1), 
+  `female` = 1,
+  `age` = 40,
+  `hsdrop` = 0,
+  `hsgrad` = 0,
+  `colsome` = 0,
+  `colgrad` = 1,
+  `black` = 1,
+  `hispanic` = 0
+) %>% 
+  predict(mod6, ., type = "response")
+```
+
+Mr.A's probability without smoking ban is 47.23%, and the probability with ban is 40.78%. The effect is 6.45%.
+
+Ms.B's probability without smoking ban is 14.05%, and the probability with ban is 11.17%. The effect is 2.88%.
+
+(v)
+
+The linear model assume that the marginal effect of smoke ban would be same regardless of individual characteristics, while the logit and probit models assume that the marginal effect depends individual characteristics. It is implausible that the marginal effect is same for every situation, the nonlinear, logit and probit models seem to make more sense.
+
+The estimated effect is about 6~7% for Mr.A and 2~3% for Ms.B. It can be seen as quite strong effect in real world, as more than 10% of the group quit smoking by the bans.
+
+
+## 4. E.12.2
+
+### a.
+
+1. Instrument relevance: $corr(X_i, X_i) = 1$;
+2. Instrument exogenity: $corr(X_i, u_i) = 0$ by the first assumption.
+
+$X_i$ is perfectly(!) strong and exogenous, thus is a valid instrument.
+
+### b.
+
+1. $E(u_i) = E(E(u_i|X_i)) = E(0) = 0$;
+2. As $(X_i, Y_i)$ are jointly i.i.d and $X_i$ and $Y_i$ are i.i.d respectively, $(X_i, Z_i = X_i, Y_i)$ are i.i.d;
+3. $X_i$, $Y_i$ have nonzero finite fourth moments. Thus $Z_i = X_i$ also has;
+4. $Z_i$ is a valid instrument as shown above.
+
+### c.
+
+We can construct the IV model by two stage, (1) regress $X_i$ on $Z_i$, (2) regress $Y_i$ on $\hat{X_i}$ obtained by first stage regression.
+
+1. As $Z_i = X_i$, the regression is $\hat{X_i} = Z_i = X_i$.
+2. By regressing $Y_i$ on $\hat{X_i}$, the IV model is 
+
+$$
+Y_i = \beta_0 + \beta_1\hat{X_i} + u_i
+\\
+Y_i = \beta_0 + \beta_1X_i + u_i
+$$
+
+The model above is equivalent to the OLS model constructed by regression $Y_i$ on $X_i$.
+
+
+## 5. E.12.4
+
+The TSLS estimator, which estimates the effect of $X_i$ on $Y_i$, has close form:
+
+$$
+\frac{\sum^n_{i = 1}{{(Y_i - \bar{Y})Z_i}}}{\sum^n_{i=1}{(X_i - \bar{X})Z_i}}
+$$
+
+Note that:
+
+$$
+\bar{Y} = \bar{Z}\bar{Y}_{Z = 1} + (1 - \bar{Z})\bar{Y}_{Z = 0}
+\\
+\bar{X} = \bar{Z}\bar{X}_{Z = 1} + (1 - \bar{Z})\bar{X}_{Z = 0}
+$$
+
+Thus the TSLS estimator can be written as:
+
+$$
+\frac{\sum^n_{i = 1}{{(Y_i - \bar{Y})Z_i}}}{\sum^n_{i=1}{(X_i - \bar{X})Z_i}} 
+= \frac{\sum_{Z_i = 1}{(Y_i - \bar{Y})}}{\sum_{Z_i = 1}{(X_i - \bar{X})}}
+\\
+= \frac{\bar{Y}_{Z = 1} - \bar{Y}}{\bar{X}_{Z = 1} - \bar{Y}}
+\\
+= \frac{
+    \bar{Y}_{Z = 1} - (\bar{Z}\bar{Y}_{Z = 1} + (1 - \bar{Z})\bar{Y}_{Z = 0})
+  }{
+    \bar{X}_{Z = 1} - (\bar{Z}\bar{X}_{Z = 1} + (1 - \bar{Z})\bar{X}_{Z = 0})
+  }
+\\
+= \frac{
+    (1 - \bar{Z})\bar{Y}_{Z = 1} - (1 - \bar{Z})\bar{Y}_{Z = 0}
+  }{
+    (1 - \bar{Z})\bar{X}_{Z = 1} - (1 - \bar{Z})\bar{X}_{Z = 0}
+  }
+\\
+= \frac{\bar{Y}_{Z = 1} - \bar{Y}_{Z = 0}}{\bar{X}_{Z = 1} - \bar{X}_{Z = 0}}
+\\
+= \hat{\beta}_{Wald}
+$$
+
+
+## 6. EE.12.1
+
+### a.
+
+```{r}
+mod7 <- lm(weeksm1 ~ morekids, fertility)
+summary(mod7)
+```
+
+Moms with more than 2 children worked 5.38 weeks less than the moms with less than 2 children. The estimated coefficient is statistically significant at the 1% significance level.
+
+### b.
+
+The regression would suffer from omitted variable bias. For example, the older mom would have correlation with the number of kids, and also determines weeks of work. Income of the husband also could be one example.
+
+### c.
+
+```{r}
+mod8 <- lm(morekids ~ samesex, fertility)
+summary(mod8)
+```
+
+If the first children are of the same sex, the couple is more likely to have a third child by 6.75%. The coefficient's t-value is 35.17, thus it is highly significant.
+
+### d.
+
+`samesex` variable is highly correlated with `morekids` as shown above, but is not likely to have correlation with regression errors, or responses. That is, the variable is a valid instrument because it is relevant and exogenous.
+
+### e.
+
+The F-statistic is 1237, which is sufficiently large. `samesex` is a strong instrument.
+
+### f.
+
+```{r}
+mod9 <- ivreg(weeksm1 ~ morekids | samesex, data = fertility)
+summary(mod9)
+```
+
+The estimated effect is -6.314. That is, moms with more than 2 children work 6.314 weeks less than moms with less than 2 children.
+
+### g.
+
+```{r}
+mod10 <- ivreg(
+  weeksm1 ~ morekids + agem1 + black + hispan + othrace | 
+    samesex + agem1 + black + hispan + othrace, 
+  data = fertility
+)
+summary(mod10)
+```
+
+The estimated effect is now -5.82. As `samesex` is expected to have no correlation with other variables, there would not be omitted variable bias. Thus the estimated effect was not changed drastically.
+
+

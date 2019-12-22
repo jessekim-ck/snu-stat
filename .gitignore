@@ -1,0 +1,10 @@
+*.zip
+*.sqlite
+*.sqlite0journal
+*.csv
+
+.Rhistory
+.Rapp.history
+.RData
+.Rproj.user/
+*.Rproj

@@ -1,0 +1,321 @@
+---
+title: '326.212 Final Project: Part 2'
+output: html_document
+---
+
+## 2013-11086 김찬규
+
+```{r setup, include=FALSE}
+library(RSQLite)
+library(tidyverse)
+library(lubridate)
+library(stringr)
+con <- dbConnect(SQLite(), "project.sqlite")
+```
+
+## Part 2. Basic Questions (150 pts)
+
+### Q1. Monthly traffic in three airports (60 pts)
+
+#### Q1-1
+
+```{r}
+airports_list = c("SNA", "SJC", "SMF")
+
+tbl(con, "airports") %>% 
+  filter(IATA %in% airports_list)
+```
+
+- `SNA` belongs to John Wayne Airport-Orange County Airport.
+- `SJC` belongs to Norman Y. Mineta San Jose International Airport.
+- `SMF` belongs to Sacramento International Airport.
+
+#### Q1-2
+
+```{r}
+flights <- tbl(con, "flights")
+
+head(flights)
+
+airportcounts <- flights %>% 
+  filter(Dest %in% airports_list) %>% 
+  group_by(Year, Month, Dest) %>% 
+  summarize(counts = n()) %>% 
+  collect()
+
+airportcounts
+```
+
+#### Q1-3
+
+```{r}
+airportcounts <- airportcounts %>%
+  ungroup() %>% 
+  mutate(
+    Date = date(str_c(Year, Month, "1", sep = "-"))
+  ) %>% 
+  select(
+    Date, Dest, counts
+  ) %>% 
+  arrange(
+    Date
+  )
+airportcounts
+```
+
+#### Q1-4
+
+```{r}
+airportcounts %>% 
+  ggplot(aes(Date, counts)) +
+  geom_point(aes(color = Dest))
+```
+
+#### Q1-5
+
+```{r}
+for (airport in airports_list) {
+  airportcounts %>% 
+  filter(Dest == airport) %>% 
+  arrange(desc(counts)) %>% 
+  head(., 10) %>% 
+  print()
+}
+```
+
+
+### Q2. Finding reliable airlines (60 pts)
+
+#### Q2-1
+
+```{r}
+airlines_list = c("UA", "DL", "AA", "MQ")
+
+delays <- dplyr::tbl(con, "flights") %>% 
+  filter(
+    Origin == "ORD",
+    Dest == "MSP",
+    Year == 2015,
+    Op_Unique_Carrier %in% airlines_list
+  ) %>% 
+  select(
+    Year, Month, Day_of_Month, Op_Unique_Carrier, Arr_Delay
+  ) %>% 
+  group_by(
+    Year, Month, Day_of_Month, Op_Unique_Carrier
+  ) %>% 
+  summarize(
+    mean_delay = mean(Arr_Delay, na.rm = TRUE)
+  ) %>% 
+  collect() %>% 
+  ungroup() %>% 
+  mutate(
+    Date = date(str_c(Year, Month, Day_of_Month, sep = "-"))
+  ) %>% 
+  select(
+    Date, Op_Unique_Carrier, mean_delay
+  )
+  
+delays
+```
+
+#### Q2-2
+
+```{r}
+airlines <- tbl(con, "airlines") %>% collect()
+
+delays %>%
+  left_join(
+    airlines,
+    by = c("Op_Unique_Carrier" = "Code")
+  ) %>% 
+  ggplot(aes(mean_delay)) +
+  geom_density(aes(color = Description), na.rm = TRUE)
+```
+
+It seems Delta airlines best observes the scheduled arrival time with mean arrival delay nearest to zero and minimal variance of delay times among four airlines.
+
+However, Envoy airlines seems to be least reliable with largest mean arrival delay and biggest variance of delay times among four airlines.
+
+In the meantime, American airlines shows the minimum mean arrival delay with negative value, which means the flights from American airlines tend to arrive early on time.
+
+
+### Q3. All flights (30 pts)
+
+#### Q3-1
+
+```{r}
+# Flights data in 2001
+flights_2001 <- tbl(con, "flights") %>% 
+  select(
+    Year, Month, Day_of_Month, Day_Of_Week, Cancelled
+  ) %>% 
+  filter(
+    Year == 2001,
+    Day_Of_Week == 1
+  ) %>% 
+  group_by(Year, Month, Day_Of_Month) %>% 
+  summarize(
+    counts = n(),
+    cancelled = sum(Cancelled, na.rm = TRUE)
+  ) %>% 
+  collect() %>% 
+  ungroup() %>% 
+  mutate(
+    Date = date(str_c(Year, Month, Day_of_Month, sep = "-"))
+  ) %>% 
+  select(Date, counts, cancelled)
+
+flights_2001
+```
+
+```{r}
+# Plot for 2001 data
+flights_2001_holidays <- flights_2001 %>%
+  filter(
+    Date %in% ymd(c(
+      "2001-01-01", # New Year's Day
+      "2001-05-28", # Memorial Day
+      "2001-07-02", # Independence Day
+      "2001-12-24", # Christmas Day
+      "2001-12-31" # New Year's Day
+    ))
+  )
+
+flights_2001_cancels <- flights_2001 %>% 
+  filter(
+    cancelled > 2000
+  )
+
+flights_2001 %>% 
+  ggplot(aes(Date)) +
+  geom_point(aes(y = counts)) +
+  geom_point(aes(y = counts - cancelled), color = "blue") +
+  geom_point(
+    data = flights_2001_holidays, 
+    aes(y = counts), 
+    size = 3, 
+    shape = 1, 
+    color = "purple"
+  ) +
+  geom_point(
+    data = flights_2001_cancels,
+    aes(y = counts - cancelled),
+    size = 3,
+    shape = 1,
+    color = "red"
+  )
+```
+
+Black points in the above graph describe the number of all flights for each day. Blue points describe the number of all flights which were not cancelled. Purple circles describe the days that protrude from overall trend. Red circles describe the days with abnormally high cancellation rate.
+
+There is a slight increase of the number of flights through the summertime, that is, from July to September. This may be the effect of summer vacation.
+
+However, there is a drastical drop in number of flights in the middle of September, from 16,906 in 2001-09-10 to 13,708 in 2001-09-17. Then the number of flights remains low throughout the year. Noting that the `9.11 Terror` occured at 2001-09-11, it is reasonable that the number of flights dropped because people began to fear flights. Actually, many airlines including SABENA Belgian Airlines, Swiss Airlines went bankrupt after the terror. (Referenced to [911 테러-나무위키](https://namu.wiki/w/9.11%20%ED%85%8C%EB%9F%AC))
+
+There also are notable outliers in the number of flights. That is, There are notable drop of flights in 1/1, 5/28, 7/2, 12/24, 12/31 (Check out pirple-circled points). It seems they are related with american federal holidays. 1/1 is New Year's Day, 5/28 is Memorial Day, 7/4 is Independence Day, 12/25 is Christmas Day and 12/31 is day before New Year's Day again. People tend to stay home in these days.
+
+More than 2,000 cancellations are observed at 2001-03-05 (Check out red-circled points). There was a big storm from 2001-03-04 to 2001-03-06. (http://www.raymondcmartinjr.com/weather/2001/05-Mar-01.html)
+
+
+#### Q3-2
+
+```{r}
+# Flights data in 2011
+flights_2011 <- tbl(con, "flights") %>% 
+  select(
+    Year, Month, Day_of_Month, Day_Of_Week, Cancelled
+  ) %>% 
+  filter(
+    Year == 2011,
+    Day_Of_Week == 1
+  ) %>% 
+  group_by(Year, Month, Day_Of_Month) %>% 
+  summarize(
+    counts = n(),
+    cancelled = sum(Cancelled, na.rm = TRUE)
+  ) %>% 
+  collect() %>% 
+  ungroup() %>% 
+  mutate(
+    Date = date(str_c(Year, Month, Day_of_Month, sep = "-"))
+  ) %>% 
+  select(Date, counts, cancelled)
+
+flights_2011
+```
+
+```{r}
+# Plot for 2011 data
+flights_2011_holidays <- flights_2011 %>%
+  filter(
+    Date %in% ymd(c(
+      "2011-05-30", # Memorial Day
+      "2011-07-04", # Independence Day
+      "2011-09-05", # Labor Day
+      "2011-10-31", # 
+      "2011-11-21" # Thanksgiving Day
+    ))
+  )
+
+flights_2011_cancels <- flights_2011 %>% 
+  filter(
+    cancelled > 1000
+  )
+
+flights_2011 %>% 
+  ggplot(aes(Date)) +
+  geom_point(aes(y = counts)) +
+  geom_point(aes(y = counts - cancelled), color = "blue") +
+  geom_point(
+    data = flights_2011_holidays, 
+    aes(y = counts), 
+    size = 3, 
+    shape = 1, 
+    color = "purple"
+  ) +
+  geom_point(
+    data = flights_2011_cancels,
+    aes(y = counts - cancelled),
+    size = 3,
+    shape = 1,
+    color = "red"
+  )
+```
+
+
+The number of flights is highest with about 18,000 each day during the summertime. Compared to the data of year 2001, it seems that a larger amount of people go to vacation thorough flights during the summer vacation. The increased vacation flights would be due to general increase of income level and globalization.
+
+There are also notable outliers in the data. That is, the number of flights drops at 5/30, 7/4, 9/5, 10/31, 11/21 (Check out purple-circled points). Note that 5/30 is Memorial Day, 7/4 is Independence Day, 9/5 is Labor Day, 11/24 is Thanksgiving Day. The number of flights usually drops around the federal holidays. Compared to the data from year 2001, the number of flights increased at New Year's Day and Christmas Day.
+
+There are about 3,000 flights cancellation at 1/10 and about 1,200 flights cancellation at 8/29 (Check out red-circled points). We can see from the cancellations code that most of the cancellation is due to weather.
+
+```{r}
+# Cancellation code of 2011-01-10
+tbl(con, "flights") %>% 
+  filter(
+    Year == 2011,
+    Month == 1,
+    Day_of_Month == 10,
+    !is.na(Cancellation_Code)
+  ) %>% 
+  group_by(Cancellation_Code) %>% 
+  summarize(n = n())
+
+# Cancellation code of 2011-08-29
+tbl(con, "flights") %>% 
+  filter(
+    Year == 2011,
+    Month == 8,
+    Day_of_Month == 29,
+    !is.na(Cancellation_Code)
+  ) %>% 
+  group_by(Cancellation_Code) %>% 
+  summarize(n = n())
+```
+
+Actually, there was a very big winter storm at 2011-01-10, according to US national weather service. (Referred to https://www.weather.gov/ffc/20110109winterstorm) Also there was a hurricane named "Irene" around 2011-08-29. (Referred to https://en.wikipedia.org/wiki/Hurricane_Irene)
+
+```{r}
+dbDisconnect(con)
+```

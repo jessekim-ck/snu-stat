@@ -1,0 +1,283 @@
+---
+title: "hw1"
+author: "jessekim"
+date: "9/16/2019"
+output: html_document
+---
+
+## 2013-11086 김찬규(weekendkim)
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+### Textbook 3.2.4
+
+#### P.1
+
+```{r}
+ggplot(data=mpg)
+```
+
+> The empty graph.
+
+---
+
+#### P.5
+
+```{r}
+ggplot(data=mpg) +
+  geom_point(mapping=aes(x=class, y=drv))
+```
+
+> As 'drv' variable has only 3 possible outcomes, the plots are overlapped at the same point, thus the scatter plot hardly provides additional information the data distribution.
+> It would be better to see the bar chart or other graphs for these kind of data.
+
+### Textbook 3.3.1
+
+#### P.1
+
+```{r}
+ggplot(data=mpg) +
+  geom_point(mapping=aes(x=displ, y=hwy), color='blue')
+```
+
+> The "color" argument should be outside the aes() function, inside the geom_point() function.
+
+#### P.5
+
+```{r}
+ggplot(data=mpg) +
+  geom_point(mapping=aes(x=displ, y=hwy, stroke=5), color='blue')
+```
+
+> "stroke" aesthetic modifies the width of the plots' border.
+
+### Textbook 3.5.1
+
+#### P.2
+
+```{r}
+ggplot(data = mpg) + 
+  geom_point(mapping = aes(x = drv, y = cyl))
+```
+
+```{r}
+ggplot(data = mpg) + 
+  geom_point(mapping = aes(x = drv, y = cyl)) +
+  facet_grid(drv~cyl)
+```
+
+> The empty cell means that there is no data with the specific combination of "drv" and "cyl". For example, the scatterplot shows there's no point such that has 4 of drv and 5 of cyl, thus the 4(drv)-5(cyl) cell is empty.
+
+#### P.6
+
+> That would be more readable if the variables are put horizontally.
+
+### Textbook 3.6.1
+
+#### P.2
+
+> It would show the scatter plot with x-axis "displ" and y-axis "hwy", plots' color different by "drv", and regression line on it.
+
+```{r}
+ggplot(data = mpg, mapping = aes(x = displ, y = hwy, color = drv)) + 
+  geom_point() + 
+  geom_smooth(se = FALSE)
+```
+
+> Smoothing lines' are also grouped and colored by "drv" variable.
+
+#### P.6
+
+```{r}
+ggplot(data=mpg, mapping=aes(x=displ, y=hwy)) +
+  geom_point(color="black") +
+  geom_smooth(color="blue", se=FALSE)
+
+ggplot(data=mpg, mapping=aes(x=displ, y=hwy, group=drv)) +
+  geom_point(color="black") +
+  geom_smooth(color="blue", se=FALSE)
+
+ggplot(data=mpg, mapping=aes(x=displ, y=hwy, color=drv)) +
+  geom_point() +
+  geom_smooth(se=FALSE)
+
+ggplot(data=mpg, mapping=aes(x=displ, y=hwy)) +
+  geom_point(mapping=aes(color=drv)) +
+  geom_smooth(color="blue", se=FALSE)
+
+ggplot(data=mpg, mapping=aes(x=displ, y=hwy)) +
+  geom_point(mapping=aes(color=drv)) +
+  geom_smooth(mapping=aes(linetype=drv), color="blue", se=FALSE)
+
+ggplot(data=mpg, mapping=aes(x=displ, y=hwy)) +
+  geom_point(mapping=aes(stroke=2), color="white") +
+  geom_point(mapping=aes(color=drv))
+```
+
+### Textbook 3.7.1
+
+#### P.1
+
+> stat_summary() provides geom_pointrange() as its default. The default geom function could be customized by the "geom" argument.
+> The above plot also can be created by the code below, using geom_pointrange().
+
+```{r}
+ggplot(data=diamonds, mapping=aes(x=cut, y=depth)) + 
+  geom_pointrange(
+    stat="summary",
+    fun.ymin=min,
+    fun.ymax=max,
+    fun.y=median
+    )
+```
+
+#### P.5
+
+```{r}
+ggplot(data = diamonds) + 
+  geom_bar(mapping = aes(x = cut, y = ..prop..))
+
+ggplot(data = diamonds) + 
+  geom_bar(mapping = aes(x = cut, fill = color, y = ..prop..))
+
+ggplot(data = diamonds) + 
+  geom_bar(mapping = aes(x = cut, y = ..prop.., group="something"))
+
+ggplot(data = diamonds) + 
+  geom_bar(mapping = aes(x = cut, y = ..count../sum(..count..), fill = color))
+```
+
+> The default group option is by the x-axis variable of the graph, in this case, "cut". That is, geom_bar() in default shows the count of the data grouped by x-axis variable, "cut".
+
+> When y-axis is set to be proportion, however, as the data is grouped by "cut", each group's proportion shoud be 1. That is, the proportion of the "Fair" in "Fair" group should be 1, which is happening in the first graph. In order to show the proportion, we should set group="something" so that the default group setting is overrided and the proportion is calculated in total.
+
+> Reference: https://stackoverflow.com/questions/39878813/ggplot-geom-bar-meaning-of-aesgroup-1
+
+> Or we can fill the graph with proportional y-axis by just normalizing the y-axis.
+
+### Textbook 3.8.1
+
+#### P.1
+
+```{r}
+ggplot(data = mpg, mapping = aes(x = cty, y = hwy)) + 
+  geom_point(position="jitter")
+```
+
+> The data seem to be rounded that the points overlap each other. With this overplotting problem, we cannot clearly see the distribution of the data.
+> This problem can be handled by "jitter" for position argument, which adds a random noise for each data point.
+
+#### P.3
+
+```{r}
+ggplot(data = mpg, mapping = aes(x = cty, y = hwy)) + 
+  geom_jitter()
+
+ggplot(data = mpg, mapping = aes(x = cty, y = hwy)) + 
+  geom_count()
+```
+
+> geom_count() shows the number of overplotted points by its size, whereas geom_jitter() deals with overplotting problem by adding random noises to each point. geom_count() would be adequate for discrete variables such as age, counts, and so on. On the other hand, geom_jitter() would be adequate for successive variables such as temperature, weight, and so on when overplotting problem is present by rounding.
+
+### Textbook 3.9.1
+
+#### P.1
+
+> Here's the example of stacked bar chart
+
+```{r}
+bar_chart = ggplot(data=diamonds) + 
+  geom_bar(
+    mapping=aes(x=1, fill=clarity), 
+    position="stack",
+    width = 1
+    )
+
+bar_chart
+```
+
+> We can create a pie chart by adding coord_polar() to the bar chart as below.
+
+```{r}
+bar_chart + coord_polar(theta = "y")
+```
+
+#### P.4
+
+```{r}
+ggplot(data = mpg, mapping = aes(x = cty, y = hwy)) +
+  geom_point() + 
+  geom_abline() +
+  coord_fixed()
+```
+
+> A fixed scale coordinate system forces the ratio of the length of a unit for y-axis to the length of a unit for x-axis. The default ratio is 1, which means a unit length of both axes are same. Otherwise, the map would be distorted.
+> geom_abline() provides a reference line (horizontal, vertical or diagonal) for the current coordinate system.
+
+### Textbook 6.3
+
+#### P.2
+
+> The diagnostics will report abnormal argument for a function. That is, it will report missing, unmatched, overput arguments if detected.
+
+### Textbook 28.2.1
+
+#### P.1
+
+```{r}
+ggplot(data=mpg, mapping=aes(displ, hwy, color=drv)) +
+  geom_point() +
+  labs(
+    title = "Fuel economy",
+    subtitle = "2019 Annual fuel economy report",
+    x = "displ(litres)",
+    y = "hwy(miles)",
+    caption = "made by jesse kim",
+    color = "drv(f, r, 4)"
+  )
+```
+
+### Textbook 28.4.4
+
+#### P.4
+
+```{r}
+ggplot(diamonds, aes(carat, price)) +
+  geom_point(aes(colour = cut), alpha = 1/20) +
+  guides(colour=guide_legend(override.aes=list(
+    size=3,
+    alpha=1
+    )))
+```
+
+> Now legend is more clear.
+
+### Extra Questions
+
+#### P.1
+
+```{r}
+x <- 5 # a. assign 5 to x
+y <- 6 # a. assign 6 to y
+
+log(x + y, base=exp(1)) # b. same as log(x + y)
+
+log(x*y/2, base=10) # c
+
+x^(1/3) + 2*(y^(1/4)) # d
+
+10^(x - y) + exp(x + y) # e
+```
+
+#### P.2
+
+```{r}
+my_variable <- 123
+# my_varlable - wrong variable name
+my_variable # correct variable name
+```
+
+> The code has typo error.

@@ -1,0 +1,163 @@
+---
+title: '326.212 Final Project: Part 1-1'
+output: html_document
+---
+
+## 2013-11086 김찬규
+
+## Part 1-1.
+
+### 1.
+
+```{r setup, include=FALSE}
+library(DBI)
+library(RSQLite)
+library(tidyverse)
+```
+
+```{r}
+# Database connection
+con <- dbConnect(RSQLite::SQLite(), "employee.sqlite")
+str(con)
+
+# Data frames for table
+employees <- tibble(
+  name = c("Alice","Bob","Carol","Dave","Eve","Frank"),
+  email = c(
+    "alice@company.com", 
+    "bob@company.com",
+    "carol@company.com", 
+    "dave@company.com",
+    "eve@company.com",   
+    "frank@comany.com"
+  ),
+  salary = c(52000, 40000, 30000, 33000, 44000, 37000),
+  dept = c(
+    "Accounting", 
+    "Accounting",
+    "Sales",
+    "Accounting",
+    "Sales",
+    "Sales"
+  )
+)
+phone <- tibble(
+  name = c("Bob", "Carol", "Eve", "Frank"),
+  phone = c("010-555-1111", "010-555-2222", "010-555-3333", "010-555-4444")
+)
+
+# Write tables
+dbWriteTable(con, "employees", employees, overwrite = TRUE)
+dbWriteTable(con, "phone", phone, overwrite = TRUE)
+
+# Show Table list
+dbListTables(con)
+
+# Disconnect
+dbDisconnect(con)
+```
+
+```{r}
+# Reconnect
+recon <- dbConnect(RSQLite::SQLite(), "employee.sqlite")
+
+# Get tables from database
+emp <- dplyr::tbl(recon, "employees")
+ph <- dplyr::tbl(recon, "phone")
+str(emp)
+str(ph)
+
+# Treat table from a database as a tibble
+(addr <- emp %>%
+  select(name, salary) %>% 
+  arrange(salary))
+left_join(emp, ph)
+
+# Raw query
+res <- DBI::dbSendQuery(recon, "SELECT * FROM employees")
+dbFetch(res)
+dbClearResult(res)
+
+# Disconnect
+dbDisconnect(recon)
+```
+
+
+### 2.
+
+```{r, eval=FALSE}
+# Read csv files
+airports <- read_csv(
+  "./data/airports.csv", 
+  col_names = c(
+    "id", 
+    "name", # airport name
+    "city", # city
+    "country", # country
+    "IATA", # three-letter airport code
+    "ICAO", # four-letter airport code
+    "latitude", 
+    "longitude",
+    "MAMSL", # meters above mean sea level (in feets)
+    "UTC", # timezone
+    "continent", # continent code: A, E, N, O, S, U, Z
+    "timezone", # timezone name
+    "airport", # single value variable
+    "OurAirports" # single value variable
+  ),
+  na = c("\\N", "")
+)
+airlines <- read_csv(
+  "./data/airlines.csv"
+)
+airplanes <- read_csv(
+  "./data/airplanes.csv",
+  na = c("None", "")
+)
+
+# Connect to the database
+con <- DBI::dbConnect(RSQLite::SQLite(), "project.sqlite")
+
+# Write tables
+dbWriteTable(con, "airports", airports, overwrite = TRUE)
+dbWriteTable(con, "airlines", airlines, overwrite = TRUE)
+dbWriteTable(con, "airplanes", airplanes, overwrite = TRUE)
+
+dbDisconnect(con)
+```
+
+
+### 3.
+
+```{r, eval=FALSE}
+con <- dbConnect(RSQLite::SQLite(), "project.sqlite")
+
+for (year in 2001:2018) {
+  for (month in 1:12) {
+    data <- read_csv(sprintf("./data/%d%02d.zip", year, month))
+    dbWriteTable(con, "flights", data, append = TRUE)
+  }
+}
+
+dbDisconnect(con)
+```
+
+
+### 4.
+
+```{r, eval=FALSE}
+con <- dbConnect(RSQLite::SQLite(), "project.sqlite")
+
+# Add single column index
+(col_names <- dplyr::tbl(con, "flights") %>% colnames)
+
+for (col in col_names) {
+  dbSendQuery(con, sprintf("CREATE INDEX %s on flights(%s)", col, col))
+}
+
+# Add multiple column index
+dbSendQuery(con, "CREATE INDEX Date on flights(Year, Month, Day_of_Month)")
+
+dbDisconnect(con)
+```
+

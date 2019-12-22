@@ -1,0 +1,525 @@
+---
+title: "HW4"
+author: "2013-11086 Chankyu Kim"
+date: "11/17/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+lead <- readxl::read_excel("./data/lead_mortality.xlsx")
+guns <- readxl::read_excel("./data/Guns.xlsx")
+```
+
+
+---
+
+
+### 1. E8.2
+
+#### a.
+
+The regression model is: 
+
+$$
+ln(Price) = 10.97 + 0.00042*Size + 0.082*Pool + 0.037*View + 0.13*Condition
+$$
+
+1,500 additional size would increase log of price by 0.00042*1500 = 0.63, which asymtotically means 63% of Price.
+
+The standard error of the regressor for Size is 0.000038. Thus the confidence interval for change in price on log is:
+
+$$
+0.63 - 2.58*1500*0.000038 = 0.48294 < ln(price-change) < 0.77706 = 0.63 + 2.58*1500*0.000038
+$$
+
+In percentage,
+
+$$
+0.48294*100\% = 48.29\% < percentage(price-change) < 77.71\% = 0.77706*100\%
+$$
+
+
+#### b.
+
+Note that 
+
+$$
+0.69*ln(2Size) = 0.69*ln(2) + 0.69*ln(Size) = 0.4782 + 0.69*ln(Size)
+$$
+
+That is, doubling the size of a house would increase the log of price by 0.4782. It means that the price of a house would increase by about 47.82%.
+
+
+#### c.
+
+Nice view would increase the price of a house by 2.7%. The confidence interval is:
+
+$$
+0.027 - 2.58*0.028 = -0.04524 < ln(price-change) < 0.09924 = 0.027 + 2.58*0.028
+$$
+
+In percentage,
+
+$$
+-4.52\% < percentage(price-change) < 9.92\%
+$$
+
+As the confidence interval contains 0, the effect is statistically not significant.
+
+
+#### d.
+
+Adding two bedrooms to a house would increase the price by 0.0072\*100% = 0.72%. The t-statistic, coefficient divided by the standard error, is $0.0036/0.037 = 0.097$. Thus the effect is statistically insignificant.
+
+Because the regression coefficient of `Bedroom` is statistically insignicant while Size's regression coefficient is statistically significant (the statistic is $0.68/0.087 = 7.82$), Size of a house seems to be more important in predicting the price of a house.
+
+
+#### e.
+
+The t-statistic is $0.12/0.036 = 3.33$. It's statistically significant at 99% level.
+
+
+#### f.
+
+The t-statistic is $0.0022/0.10 = 0.022$. It's statistically insignificant.
+
+- With pool: Adding a view to a house would increase the log of price by 0.027 + 0.0022 = 0.0292. That is, adding a view to a house with a pool would increase the price by 2.92%.
+
+- Without pool: Adding a view to a house would increase the log of price by 0.027. That is, adding a view to a house without a pool would increase the price by 2.70%.
+
+
+---
+
+
+### 2. EE8.1
+
+#### a.
+
+```{r}
+head(lead)
+
+lead %>% 
+  group_by(lead) %>% 
+  summarize(
+    counts = n(),
+    avg_infrate = mean(infrate),
+    se_infrate = sd(infrate)/sqrt(counts),
+    statistic = avg_infrate/se_infrate
+  )
+
+(mean_diff <- 0.4032576 - 0.3811679)
+(se_diff <- sqrt(0.01992380^2 + 0.01415293^2))
+(t_diff <- mean_diff/se_diff)
+```
+
+The difference is 0.0221, and the standard error of the difference is 0.0244. As the t-statistic is 0.9039, the difference is not statistically significant.
+
+
+#### b.
+
+```{r}
+lead_lm_1 <- lm(infrate~lead*ph, lead)
+summary(lead_lm_1)
+```
+
+
+##### i.
+
+- `Intercept` means the infant mortility rate with `lead = ph = 0`.
+
+- `Ph` means the effect of water acidity to infant rate when `lead = 0`.
+
+- `Lead` means the difference of intercept of the regression line with `lead = 1` data from the intercept of the regression line with `lead = 0` data. That is, the intercept with `lead = 1` data is 0.91890 + 0.46180 = 1.3807, while the intercept with `lead = 0` data is 0.91890.
+
+- `Lead X Ph` means the difference of effect of water acidity to infant rate with `lead = 1` data from the effect with `lead = 0` data. That is, the effect of water acidity to infant rate with `lead = 1` data is -0.07518 - 0.05686 = -0.13204, while the effect with `lead = 0` data is -0.07518.
+
+
+##### ii.
+
+```{r}
+ggplot(mapping = aes(ph, infrate)) + 
+  geom_smooth(data = lead %>% filter(lead == 0), method = "lm", se = FALSE, color = "green") + 
+  geom_smooth(data = lead %>% filter(lead == 1), method = "lm", se = FALSE, color = "red")
+```
+
+The green line is the regression line with `lead = 0`, and the red line is the regression line with `lead = 1`. 
+
+The regression line with `lead = 0` (green line) has the intercept of 0.91890 and the slope of -0.07518. The regression line with `lead = 1` (red line) has the intercept of 1.3807, which is bigger than the green line, and the slope of -0.13204, which is steeper than the green line.
+
+
+Regression line with lead (red line):
+
+$$
+Inf = 1.3807 - 0.13204*ph
+$$
+
+Regression line without lead (green line):
+
+$$
+Inf = 0.9189 - 0.07518*ph
+$$
+
+
+##### iii.
+
+As the t-statistic of the coefficient of `lead` is 2.087, it is statistically significant at 95% level.
+
+
+##### iv.
+
+As the t-statistic of the coefficient of interaction term between `lead` and `ph` is -1.871, it is statistically significant at 90% level. It is somewhat reasonable to say that the effect of `lead` on infant mortility rate depends on `ph` in some level.
+
+
+##### v.
+
+```{r}
+mean(lead$ph)
+```
+
+The average ph in the sample is 7.322674. 
+
+So the effect of `lead` to infant mortility rate with this level of ph estimated by the regression model is $(1.3807 - 0.13204*7.322674) - (0.9189 - 0.07518*7.322674) = 0.04543275636$. That is, lead would increase the infant mortility rate by 4.54% at the average level of ph.
+
+```{r}
+sd(lead$ph)
+```
+
+The standard deviation of ph in the sample is 0.6917288
+
+If pH level is one standard deviation lower than the average, that is when pH level is 7.322674 - 0.6917288 = 6.6309452, the effect is $(1.3807 - 0.13204*6.6309452) - (0.9189 - 0.07518*6.6309452) = 0.08476445593$.
+
+If pH level is one standard deviation higher than the average, that is when pH level is 7.322674 + 0.6917288 = 8.0144028, the effect is $(1.3807 - 0.13204*8.0144028) - (0.9189 - 0.07518*8.0144028) = 0.006101056792$.
+
+
+
+##### vi.
+
+The effect is $\beta_{lead} + 6.5*\beta_{lead:ph}$. The value is $0.46180 + -0.05686*6.5 = 0.09221$, and the stand error of the effect is $se(\beta_{lead} + 6.5\beta_{lead:ph}) = \sqrt{0.22122^2 + (0.03040*6.5)^2} = 0.2966210518$. Thus the confidence interval is:
+
+$$
+0.09221 - 1.96*0.2966 = -0.489126 < effect-of-lead < 0.673546 = 0.09221 + 1.96*0.2966
+$$
+
+In percentage:
+
+$$
+-48.91\% < effect-of-lead < 67.35\%
+$$
+
+
+#### c.
+
+```{r}
+lead_lm_2 <- lm(
+  infrate~
+    lead+
+    ph+
+    lead:ph+
+    typhoid_rate+
+    hardness+
+    np_tub_rate+
+    temperature+
+    precipitation,
+  lead
+)
+summary(lead_lm_2)
+```
+
+Considering other variables in the data set, the coefficients of `lead` and `lead:ph` remain similar to the anaylsis in (b). The effect of `lead` seems robust.
+
+
+---
+
+
+### 3. E9.2*
+
+#### a.
+
+By adding the measurement error to regression model, we can show the model.
+
+$$
+Y_i = \beta_0 + \beta_1X_i + u_i
+\\
+Y_i + w_i = \beta_0 + \beta_1X_i + u_i + w_i
+\\
+\tilde{Y_i} = \beta_0 + \beta_1X_i + u_i + w_i
+\\
+\tilde{Y_i} = \beta_0 + \beta_1X_i + v_i
+$$
+
+
+#### b.
+
+>  The least squares assumption:
+>
+>  1. The error term $u_i$ has conditional mean 0 given $X_i: E(u_i|X_i) = 0$.
+>  2. $(X_i, Y_i), i=1, ...,n$, are i.i.d.
+>  3. Large outliers are unlikely: $X_i$ and $Y_i$ have nonzero finite fouth moments.
+
+1. The first assumption is satisfied if $E(w_i) = 0$.
+
+$$
+E(v_i|X_i) = E(w_i + u_i|X_i) = E(w_i|X_i) + E(u_i|X_i) = E(w_i) = 0
+$$
+
+2. As $(X_i, Y_i)$ are i.i.d and $(X_i, w_i)$ are i.i.d, $(X_i, Y_i + w_i) = (X_i, \tilde{Y_i})$ are i.i.d.
+3. $E(\tilde{Y_i} - E(\tilde{Y_i}))^4 = E(\tilde{Y_i} - (\mu + E(w_i)))^4 = E(Y_i - \mu)^4 + E(w_i - E(w_i))^4 + \alpha > 0$ by assumptions.
+
+Thus the model satisfies the least squares assumptions if $E(w_i) = 0$. If not, the OLS estimators are biased.
+
+
+
+#### c.
+
+As the model satisfies the least squares assumptions (2) and (3), the OLS estimators are consistent.
+
+
+#### d.
+
+As the model satisfies the least squares assumptions (2) and (3), the estimators are asymtotically normally distributed. The confidence interval can be instructed in the usual way.
+
+
+#### e.
+
+The OLS estimators are consistent and asymtotically normally distributed even measurement error exists. However if the expectation of the measurement error is not 0, the estimators are biased. It's not a perfectly non-serious problem.
+
+
+---
+
+
+### 4. E9.10
+
+Internal Validity:
+
+- The omitted variables are considerately considered, including TTD and Morbidities.
+- Logarithm of HCE is used for dependent variable, which is general and reasonable.
+- There could be some level of errors in measurement of TTD and Morbidities, but in a insignificant volume.
+- Sample selection could be present as the data is about the people who used inpatient health care or had some hospital utilization, excluding the people who may be too healthy to use such services. This can be a problem to internal validity of the regression.
+- There is also a possibility that the healthcare expenditure would affect TTD or Morbidities. If such simultaneous causalities are true, the regression could be internally invalid.
+
+While there are some possibilities for internal invalidity of the regression, the regression is still reasonable and expected to be internally valid.
+
+
+External Validity:
+
+- The causality of age between healthcare expenditure expected to be similar all over the world in general.
+- However as the data is from England, there would be many differences in population, policies about healthcare service, general health of people for other countries in the world.
+
+These differences in settings are highly plausible, which makes the regression externally invalid.
+
+
+---
+
+
+### 5. E10.2
+
+> Equation 10.11:
+> $$
+> Y_{it} = \beta_0 + \beta_1X_{it} + \gamma_2D2_{i} + \gamma_3D3_{i} + ... + \gamma_nDn_{i} + u_{it}
+> $$
+
+#### a.
+
+Note that
+
+$$
+D1_i + D2_i + D3_i = 1 = X_{0,it}
+$$
+
+Thus,
+
+- $D1_i = X_{0,it} - D2_i - D3_i$
+- $D2_i = X_{0,it} - D1_i - D3_i$
+- $D3_i = X_{0,it} - D1_i - D2_i$
+- $X_{0,it} = D1_i + D2_i + D3_i$
+
+
+#### b.
+
+Note that
+
+$$
+D1_i + D2_i + D3_i + ... + Dn_i = 1 = X_{0,it}
+$$
+
+Thus,
+
+- $D1_i = X_{0,it} - D2_i - D3_i - D4_i - ... - Dn_i$
+- $D2_i = X_{0,it} - D1_i - D3_i - D4_i - ... - Dn_i$
+- $D3_i = X_{0,it} - D1_i - D2_i - D4_i - ... - Dn_i$
+- ...
+- $Dn_i = X_{0,it} - D1_i - D2_i - D3_i - ... - {Dn-1}_i$
+- $X_{0,it} = D1_i + D2_i + D3_i + ... + Dn_i$
+
+
+#### c.
+
+The OLS estimators cannot be caculated with the perfect multicollinearity problem. That is, the estimators do not exist.
+
+
+---
+
+
+### 6. E10.6
+
+> Key Concept 10.3
+>
+> 1. $u_{it}$ has conditional mean 0: $E(u_{it}|X_{i1}, X_{i2}, ..., X_{iT}, \alpha_{i}) = 0$.
+> 2. $(X_{i1}, X_{i2}, ..., X_{iT}, u_{i1}, u_{i2}, ..., u_{iT}), i=1, ..., n$, are i.i.d.
+> 3. Large outliers are unlikely: $(X_{it}, u_{it})$ have nonzero finite fouth moments.
+> 4. There is no perfect multicollinearity.
+
+$$
+Cov(\tilde{v}_{it}, \tilde{v}_{is}) = Cov((X_{it}-\bar{X}_i)(u_{it} - \bar{u}_i), (X_{is}-\bar{X}_i)(u_{is} - \bar{u}_i))
+$$
+
+Note that by assumption (1),
+
+$$
+E[(X_{it} - \bar{X}_i)(u_{it} - \bar{u}_i)] = E[E[(X_{it} - \bar{X}_i)(u_{it} - \bar{u}_i) | X_{i1}, X_{i2}, ..., X_{iT}, \alpha_i]] = 0
+$$
+
+and
+
+$$
+E(u_{it}) = E(E(u_{it}|X_{i1}, X_{i2}, ..., X_{iT}, \alpha_i)) = 0
+$$
+
+
+Thus, with assumption (2),
+
+$$
+Cov(\tilde{v}_{it}, \tilde{v}_{is}) = Cov((X_{it}-\bar{X}_i)(u_{it} - \bar{u}_i), (X_{is}-\bar{X}_i)(u_{is} - \bar{u}_i))\\= E[(X_{it}-\bar{X}_i)(u_{it} - \bar{u}_i)(X_{is}-\bar{X}_i)(u_{is} - \bar{u}_i)]\\= E(X_{it}-\bar{X}_i)E(u_{it} - \bar{u}_i)E(X_{is}-\bar{X}_i)E(u_{is} - \bar{u}_i)\\= 0
+$$
+
+
+---
+
+
+### 7. EE10.1
+
+```{r}
+head(guns)
+```
+
+#### a.
+
+```{r}
+lm_guns_1 <- lm(log(vio)~shall, guns)
+summary(lm_guns_1)
+```
+
+```{r}
+lm_guns_2 <- lm(log(vio)~shall+incarc_rate+density+avginc+pop+pb1064+pw1064+pm1029, guns)
+summary(lm_guns_2)
+```
+
+##### i.
+
+The shall-carry law would decrease violent crime rate by 36.84%, holding other variables in the model fixed. It seems implausibly high in a real-world sense.
+
+##### ii.
+
+By adding control variables, the absolute value of t-statistic of the coefficient for `shall` increased from 10.54 to 11.312. That is, statistical significance increased slightly.
+
+However, the absolute value of the estimated coefficient decreased from 0.44296 to 0.3683869. That is, the real-world significance of the estimated coefficient decreased.
+
+##### iii.
+
+The number of police workers in the city would be correlated with the variables such as `avginc`, `density` and so on, and also would determinate the crime rate of the city. Also the number of police workers is expected to vary accross states but plausibly vary little over time.
+
+
+#### b.
+
+```{r}
+lm_guns_3 <- lm(
+  log(vio)~shall+incarc_rate+density+avginc+pop+pb1064+pw1064+pm1029+factor(stateid), 
+  guns
+)
+summary(lm_guns_3)
+```
+
+The estimated effect of `shall` drastically decreased to -0.0461. The regression which considers fixed effects would be more credible, because the variables like the number of polices in the city in problem a.iii. would lead to a biased result.
+
+
+#### c.
+
+
+```{r}
+lm_guns_4 <- lm(
+  log(vio)~shall+incarc_rate+density+avginc+pop+pb1064+pw1064+pm1029+factor(stateid)+factor(year), 
+  guns
+)
+summary(lm_guns_4)
+```
+
+Now the estimated effect of `shall` decreased to about -0.0280, and the statistical significance is gone. As adjusted R-squared increased, and the year-related regressors seem to be statistically significant, this model looks more credible than the model in (b).
+
+
+#### d.
+
+```{r}
+lm_guns_rob_1 <- lm(
+  log(rob)~shall,
+  guns
+)
+lm_guns_rob_2 <- lm(
+  log(rob)~shall+incarc_rate+density+avginc+pop+pb1064+pw1064+pm1029, 
+  guns
+)
+lm_guns_rob_3 <- lm(
+  log(rob)~shall+incarc_rate+density+avginc+pop+pb1064+pw1064+pm1029+factor(stateid), 
+  guns
+)
+lm_guns_rob_4 <- lm(
+  log(rob)~shall+incarc_rate+density+avginc+pop+pb1064+pw1064+pm1029+factor(stateid)+factor(year), 
+  guns
+)
+summary(lm_guns_rob_1)
+summary(lm_guns_rob_2)
+summary(lm_guns_rob_3)
+summary(lm_guns_rob_4)
+```
+
+
+
+```{r}
+lm_guns_mur_1 <- lm(
+  log(mur)~shall,
+  guns
+)
+lm_guns_mur_2 <- lm(
+  log(mur)~shall+incarc_rate+density+avginc+pop+pb1064+pw1064+pm1029, 
+  guns
+)
+lm_guns_mur_3 <- lm(
+  log(mur)~shall+incarc_rate+density+avginc+pop+pb1064+pw1064+pm1029+factor(stateid), 
+  guns
+)
+lm_guns_mur_4 <- lm(
+  log(mur)~shall+incarc_rate+density+avginc+pop+pb1064+pw1064+pm1029+factor(stateid)+factor(year), 
+  guns
+)
+summary(lm_guns_mur_1)
+summary(lm_guns_mur_2)
+summary(lm_guns_mur_3)
+summary(lm_guns_mur_4)
+
+```
+
+The results are similar to those about `vio`. The estimated effect of `shall` in the first, second regression are great, but in the third, forth results the estimated effect is insignificant both statistically and in volume.
+
+
+##### e.
+
+There would be simultaneous causality between crime rate and `shall`. That is, the city with high crime rate has more motivation to take the law in effect. Also there would be an omitted variable bias in terms of the variables like number of police workers in the city, and so on.
+
+
+##### f.
+
+In the regression which considers the fixed and time fixed effects, the estimated effect of `shall` on crime rate is not significantly different from 0. Thus I would conclude that there is no statistical evidence that shall law would decrease the crime rate of a city.
+
+
+

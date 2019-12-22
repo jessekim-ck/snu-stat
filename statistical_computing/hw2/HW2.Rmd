@@ -1,0 +1,603 @@
+---
+title: "HW2"
+author: "jessekim"
+date: "9/30/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(nycflights13)
+```
+
+# Chapter 5
+---
+
+## 5.2.4
+
+### P1
+
+```{r}
+(flights %>% 
+  filter(
+    arr_delay >= 200 # Had an arrival delay of two or more hours
+  ))
+
+(flights %>% 
+  filter(
+    dest %in% c('IAH', 'HOU') # Flew to Houston
+  ))
+
+(flights %>% 
+  filter(
+    carrier %in% c('UA', 'AA', 'DL') # Were operated by United, American, or Delta
+  ))
+
+(flights %>% 
+  filter(
+    month %in% c(7, 8, 9) # Departed in summer
+  ))
+
+(flights %>% 
+  filter(
+    arr_delay >= 200, dep_delay <= 0 # Arrived mored than two hours late, but didn't leave late
+  ))
+
+(flights %>% 
+  filter(
+    dep_delay >= 100, dep_delay - arr_delay > 30 # Were delayed by at least an hour, but made up over 30 minutes in flight
+  ))
+
+(flights %>% 
+  filter(
+    dep_time %% 2400 <= 600 # Departed between midnight and 6am
+  ))
+```
+
+### P3
+
+```{r}
+col_name <- colnames(flights)
+na_count <- c()
+
+for (i in 1:length(flights)) {
+  na_count <- c(na_count, sum(is.na(flights[[i]])))
+}
+
+(result <- tibble(col_name, na_count) %>% filter(na_count > 0))
+```
+
+> 8,255 flights have a missing dep_time. Missing value in dep_time means that the flight did not departed (the flight was cancelled). Also dep_delay, arr_time, arr_delay, tailnum, air_time have missing values as above.
+
+## 5.3.1
+
+### P1
+
+> `arrange` sorts boolean values in a way that TRUE values come after FALSE values. Thus, giving argument `!is.na(COL_NAME)` to `arrange` sorts data in a way that missing values in the column come first.
+
+```{r}
+flights %>% 
+  arrange(!is.na(dep_time))
+```
+
+## 5.4.1
+
+### P4
+
+```{r}
+select(flights, contains("TIME"))
+select(flights, contains("TIME", ignore.case=FALSE))
+```
+
+> `dplyr::contains` function has default setting of `ignore.case = TRUE`, which let the function ignore cases of the characters. Specifying `ignore.case = TRUE` let the function be case-sensitive.
+
+## 5.5.2
+
+### P1
+
+```{r}
+time_to_minutes <- function(time) {
+  time_hour <- time %/% 100
+  time_minute <- time %% 100
+  
+  time_hour * 60 + time_minute
+}
+
+flights %>% 
+  mutate(
+    dep_time_minutes = time_to_minutes(dep_time),
+    sched_dep_time_minutes = time_to_minutes(sched_dep_time)
+  ) %>% 
+  select(dep_time, dep_time_minutes, sched_dep_time, sched_dep_time_minutes)
+```
+
+### P3
+
+```{r}
+flights %>% 
+  transmute(
+    dep_sched_dep = time_to_minutes(dep_time) - time_to_minutes(sched_dep_time),
+    dep_delay,
+    check = dep_sched_dep == dep_delay
+  )
+```
+
+> It's easy to know that `dep_time` - `sched_dep_time` = `dep_delay`.
+
+## 5.6.7
+
+### 5
+
+```{r}
+flights %>% 
+  group_by(carrier) %>% 
+  summarize(
+    worst_dep_delay = max(dep_delay, na.rm = TRUE),
+    worst_arr_delay = max(arr_delay, na.rm = TRUE)
+  ) %>% 
+  arrange(desc(worst_dep_delay), desc(worst_arr_delay))
+```
+
+> Carrier `HA` has both the worst dep_delayed and the worst arr_delayed flights ever.
+
+```{r}
+flights %>% 
+  group_by(carrier) %>% 
+  summarize(
+    mean_dep_delay = mean(dep_delay, na.rm = TRUE),
+    mean_arr_delay = mean(arr_delay, na.rm = TRUE)
+  ) %>% 
+  arrange(desc(mean_dep_delay), desc(mean_arr_delay))
+```
+
+> In average, carrier `F9` is the worst both in departure and arrival.
+
+> We can disentangle the effects of bad airports by normalizing the delays of flights by the mean delays of each airport.
+
+```{r}
+flights %>% 
+  filter(!is.na(dep_delay)) %>% 
+  group_by(origin) %>%
+  mutate(
+    airport_delay_mean = mean(dep_delay),
+    airport_delay_std = var(dep_delay)^(1/2),
+    normal_dep_delay = (dep_delay - airport_delay_mean)/airport_delay_std
+  ) %>% 
+  group_by(carrier) %>% 
+  summarize(
+    delay = mean(normal_dep_delay)
+  ) %>% 
+  arrange(desc(delay))
+```
+
+## 5.7.1
+
+### P5
+
+```{r}
+flights_lagged <- flights %>%
+  group_by(origin) %>% 
+  arrange(year, month, day, dep_time) %>% 
+  mutate(lagging_delay = lag(dep_delay))
+
+lagged_delay <- flights_lagged %>% 
+  group_by(lagging_delay) %>% 
+  summarize(mean_lagged_delay = mean(dep_delay))
+
+ggplot(lagged_delay, aes(lagging_delay, mean_lagged_delay)) +
+  geom_point(na.rm = TRUE)
+```
+
+> Delay of preceding flight is almost linearly related with the delay of following flight, for up to 250 minutes of preceding delay. From 250 to 500 minutes of preceding delay, the plot implies the positive relationship, but with much bigger variance. From 500 minutes of preceding delay, the following delay seems to be nearly 0.
+
+# Chapter 7
+
+## 7.3.4
+
+### P2
+
+```{r}
+binwidths = c(5, 10, 30, 50, 100, 200, 500, 1000)
+gg_diamonds <- diamonds %>% 
+  filter(price < 10000) %>% 
+  ggplot(aes(x=price))
+
+for (i in 1:length(binwidths)) {
+  binwidth <- binwidths[[i]]
+  plot <- gg_diamonds + 
+    geom_histogram(binwidth = binwidth) +
+    ggtitle(paste('Binwidth: ', binwidth))
+  
+  print(plot)
+}
+
+diamonds %>% 
+  group_by(cut_width(price, 50)) %>% 
+  summarize(n=n())
+```
+
+> There is no diamond with the price between (1475, 1525], which is unusual. Also, there's a slight increase in the counts of diamonds around from $3,750 to $5,000.
+
+## 7.5.1.1
+
+### P1
+
+```{r}
+flights %>% 
+  mutate(
+    cancelled = is.na(dep_time),
+    sched_hour = sched_dep_time %/% 100,
+    sched_min = sched_dep_time %% 100,
+    sched_dep_time = sched_hour + sched_min/60
+  ) %>% 
+  ggplot(aes(sched_dep_time, ..density..)) +
+  geom_freqpoly(aes(color=cancelled), binwidth=1)
+```
+
+> The problem was, there are much more non-cancelled flights which made the comparison with counts difficult. In this case, by comparing density, or standardized count the comparison would be more plausible. The graph shows that flights are more tend to be cancelled at the afternoon. (specifically, after 3pm)
+
+### P2
+
+```{r}
+vars <- colnames(diamonds)
+
+for (i in 1:length(vars)) {
+  plot <- diamonds %>% 
+    ggplot(aes(x=diamonds[[ vars[[i]] ]], y=price)) +
+    geom_point(alpha=1/10) +
+    xlab(vars[[i]])
+    
+  print(plot)
+}
+
+```
+
+> Seemingly, "x" and "carat" is most important in predicting the price, as they seem to have exponential relationship with the price of the diamond. "y" and "z" also seem to have exponential relationship, but they have too short range.
+Note that "x" and "carat" both indicates the size of diamonds. We can easily know that "x" and "carat" of a diamond have quite high correlation. Then we can expect that the relationship between "x" and "cut" would be similar to the relationship between "carat" and "cut".
+
+```{r}
+diamonds %>% 
+  ggplot(aes(x, carat)) +
+  geom_point()
+```
+
+```{r}
+diamonds %>% 
+  ggplot(aes(cut, carat)) +
+  geom_boxplot() +
+  coord_cartesian(ylim=c(0, 2))
+```
+
+> Now the graph shows that the more ideal the cut, the smaller diamonds are, which makes ideal diamond cheaper that the fair one.
+
+## 7.5.2.1
+
+### 2
+
+```{r}
+flights %>% 
+  group_by(dest, month) %>% 
+  mutate(avg_delay = mean(dep_delay, na.rm = TRUE)) %>% 
+  ggplot(aes(dest, month)) +
+  geom_tile(aes(fill=dep_delay))
+```
+
+> There are too many destinations to fit in one graph. 
+
+```{r}
+library(d3heatmap)
+
+flights %>% 
+  group_by(month, dest) %>% 
+  filter(n() >= 50) %>% 
+  summarize(avg_delay=mean(dep_delay, na.rm = TRUE)) %>% 
+  spread(dest, avg_delay) %>% 
+  d3heatmap(., Rowv = FALSE, Colv = FALSE)
+```
+
+> We can use d3heatmap library instead. It offers interactive graph. Also, we can filter some interesting destinations only.
+
+## 7.5.3.1
+
+### 5
+
+```{r}
+ggplot(data = diamonds) +
+  geom_bin2d(mapping = aes(x = x, y = y)) +
+  coord_cartesian(xlim = c(4, 11), ylim = c(4, 11))
+
+ggplot(data = diamonds) +
+  geom_point(mapping = aes(x = x, y = y)) +
+  coord_cartesian(xlim = c(4, 11), ylim = c(4, 11))
+```
+
+> As a binned plot summarizes various data points in the bin, it is difficult to tell that a specific data point is unusual.
+
+# Chapter 10
+
+## 10.5
+
+### P4
+
+```{r}
+(annoying <- tibble(
+  `1` = 1:10,
+  `2` = `1` * 2 + rnorm(length(`1`))
+))
+
+# 1.
+annoying[, "1"]
+
+# 2.
+annoying %>% 
+  ggplot(aes(`1`, `2`)) +
+  geom_point()
+
+# 3.
+(annoying <- annoying %>% 
+  mutate("3" = `2`/`1`))
+
+# 4.
+annoying %>% 
+  rename("one" = "1", `two` = `2`, three = 3)
+
+```
+
+# Chapter 11
+
+## 11.2.2
+
+### P5
+
+```{r}
+# 3rd columns are truncated, because only 2 columns are assigned in header.
+read_csv("a,b\n1,2,3\n4,5,6")
+
+# 4th columns are truncated, and 3rd column of the first row is NA, because 3 columns are assigned.
+read_csv("a,b,c\n1,2\n1,2,3,4")
+
+# quote is not closed normally.
+read_csv("a,b\n\"1")
+
+# 1, 2 of first row are saved as character, not integer, because a column should have one data type.
+read_csv("a,b\n1,2\na,b")
+
+# We need to specify delimitor with read_delim() to break the value.
+read_csv("a;b\n1;3")
+```
+
+## 11.3.5
+
+### P4
+
+```{r}
+# an xlsx file from django model export
+orders = readxl::read_excel("./etc/orders.xlsx")
+
+# Locale with date format and timezone setting
+django_locale = locale(date_format = "%Y-%m-%d %H:%M:%S", tz="Asia/Seoul")
+parse_datetime(orders$created, locale = django_locale)
+```
+
+
+### P7
+
+```{r}
+d1 <- "January 1, 2010"
+d2 <- "2015-Mar-07"
+d3 <- "06-Jun-2017"
+d4 <- c("August 19 (2015)", "July 1 (2015)")
+d5 <- "12/30/14" # Dec 30, 2014
+t1 <- "1705"
+t2 <- "11:15:10.12 PM"
+```
+
+```{r}
+parse_date(d1, "%B %d, %Y")
+parse_date(d2, "%Y-%b-%d")
+parse_date(d3, "%d-%b-%Y")
+parse_date(d4, "%B %d (%Y)")
+parse_date(d5, "%m/%d/%y")
+parse_time(t1, "%H%M")
+parse_time(t2, "%H:%M:%OS %p")
+```
+
+## Extra Questions
+
+### 1
+
+```{r}
+library(quantmod)
+options("getSymbols.warning4.0" = FALSE)
+samsung_xts <- getSymbols("005930.KS", auto.assign = FALSE)
+```
+
+#### a.
+
+```{r}
+library(timetk)
+samsung_tbl <- timetk::tk_tbl(samsung_xts, rename_index = "date")
+head(samsung_tbl)
+```
+
+> We can convert xts object to tibble easily using library `timetk`.
+
+```{r}
+ggplot(samsung_tbl, aes(date, `005930.KS.Close`)) +
+  geom_line()
+```
+
+#### b.
+
+```{r}
+quantmod::getFX("USD/KRW")
+quantmod::getFX("JPY/KRW")
+
+jpykrw <- tk_tbl(JPYKRW, rename_index = "date")
+usdkrw <- tk_tbl(USDKRW, rename_index = "date")
+
+samsung_adjusted <- samsung_tbl %>% 
+  inner_join(jpykrw) %>% 
+  inner_join(usdkrw) %>% 
+  filter(!is.na(`005930.KS.Close`)) %>% 
+  mutate(
+    in_krw = `005930.KS.Close`,
+    in_jpy = in_krw/JPY.KRW,
+    in_usd = in_krw/USD.KRW
+  )
+
+initial_krw <- samsung_adjusted$in_krw[1]
+initial_jpy <- samsung_adjusted$in_jpy[1]
+initial_usd <- samsung_adjusted$in_usd[1]
+
+samsung_adjusted %>% 
+  mutate(
+    in_jpy_adj = in_jpy * (initial_krw / initial_jpy),
+    in_usd_adj = in_usd * (initial_krw / initial_usd)
+  ) %>% 
+  ggplot(aes(date)) +
+  geom_line(aes(y = in_krw, color="black")) +
+  geom_line(aes(y = in_jpy_adj, color="red")) +
+  geom_line(aes(y = in_usd_adj, color="blue")) +
+  scale_color_discrete(
+    name = "Currency",
+    labels = c("KRW", "JPY", "USD")
+  )
+```
+
+> Using `inner_join`, we can extract only the common date points between the stock price data and the exchange rate data.
+
+### 2
+
+#### a.
+
+```{r}
+(census <- read_csv("./etc/census.csv"))
+```
+
+> Original data
+
+```{r}
+col_names = c(
+  "행정구역별(읍면동)",
+  "연령별",
+  "총인구(명)",
+  "총인구_남자(명)",
+  "총인구_여자(명)",
+  "총인구_성비",
+  "내국인(명)",
+  "내국인_남자(명)",
+  "내국인_여자(명)",
+  "내국인_성비"
+)
+
+seoul2018 <- read_csv(
+  "./etc/census.csv",
+  skip = 3,
+  n_max = 25,
+  col_names = col_names
+  )
+seoul2018
+```
+
+> I skipped first 3 columns so that the peripheral information is gone and default column types are set appropriately, but which made me manually set the column names. Also with `n_max` option I saved only 25 rows from the data source.
+
+#### b.
+
+```{r}
+seoul2018tidy <- seoul2018 %>%
+  select(-2)
+
+seoul2018tidy
+```
+
+> The second column, whose value for all rows is "합계" is useless. So I removed the column. Except for that the data is tidy, with rows meaning the data of each district, columns meaning the values indicated by column names.
+
+#### c.
+
+> Already done by default col_types option of `read_csv`. Parsing a numerical vector can be done like:
+
+```{r}
+locale = locale(grouping_mark = ",")
+
+parse_number("192,014,152", locale = locale)
+```
+
+#### d.
+
+```{r}
+pops <- seoul2018tidy[[2]]
+
+(pops_n <- length(pops))
+(pops_mean <- mean(pops))
+(pops_std <- var(pops)^(1/2))
+
+random_normal_sample <- rnorm(pops_n, pops_mean, pops_std)
+
+hist(pops)
+hist(random_normal_sample)
+```
+
+> Random normal sample looks more like bell shape, in which the data points are concentrated and are symmetric around the center(mean). The histogram of pops show the distribution in which the data points are concentrated arount the center, but more data points are put on the right side of the mean.
+Reference: https://www.datamentor.io/r-programming/examples/random-number/
+
+#### e.
+
+```{r}
+pops_mean
+
+sample(pops, 10, replace=TRUE) %>% mean()
+sample(pops, 10, replace=TRUE) %>% mean()
+```
+
+> They are all different. That's because the sample mean is a random variable.
+
+#### f.
+
+```{r}
+pops_mean
+
+replicate(100, sample(pops, 10, replace=TRUE) %>% mean()) %>% mean
+replicate(1000, sample(pops, 10, replace=TRUE) %>% mean()) %>% mean
+replicate(10000, sample(pops, 10, replace=TRUE) %>% mean()) %>% mean
+```
+
+> The average of sample mean gets more closer to the population mean as the number of replications gets larger. This phenomenon is called the law of large numbers, which shows that the sample mean is consistent estimator of the population mean.
+
+#### g.
+
+```{r}
+pops_mean
+
+sample(pops, 10, replace=TRUE) %>% mean()
+sample(pops, 25, replace=TRUE) %>% mean()
+sample(pops, 100, replace=TRUE) %>% mean()
+```
+
+> The numbers get closer to the population mean.
+
+#### h.
+
+```{r}
+replicate(10000, sample(pops, 10, replace=TRUE) %>% mean()) %>% 
+  hist()
+
+replicate(10000, sample(pops, 25, replace=TRUE) %>% mean()) %>% 
+  hist()
+
+replicate(10000, sample(pops, 100, replace=TRUE) %>% mean()) %>% 
+  hist()
+```
+
+> The histogram more looks like normal distribution than `hist(pops)`. This phenomenon is called Central Limit Theorem, which states that the sample mean shows the normal distribution, N(mean, var/n).
+
+#### i.
+
+```{r}
+replicate(1000, sample(pops, 10, replace=TRUE) %>% mean()) %>% 
+  quantile(probs = seq(0, 1, 0.025))
+```
+
+> 204,885 is less the value of 2.5% quantile, which means the mean of 204,885 is extremely unlikely in the Seoul's population data. That is, the probability that the sample mean is more far from the population mean than 204,885 is less than 5%. So I don't think the data is from Seoul's population.
+

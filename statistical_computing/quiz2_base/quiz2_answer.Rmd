@@ -1,0 +1,170 @@
+---
+title: 'SC19: Quiz 02'
+author: "Statistical Computing and Labs"
+date: '2019.11.27. 13:30 - 14:30'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(lubridate)
+library(nycflights13)
+
+holiday <- read_csv("./holiday.csv")
+elec <- read_csv("./electricity.csv")
+```
+
+# Problem 1 [20 pts]
+
+
+```{r ans1}
+holiday_parsed <- holiday %>% 
+  mutate(
+    date_parsed = dmy(date),
+    year = year(date_parsed),
+    month = month(date_parsed),
+    day = day(date_parsed)
+  )
+
+ans1 <- flights %>% 
+  left_join(
+    holiday_parsed,
+    by = c("year", "month", "day")
+  ) %>% 
+  group_by(year, month, day) %>% 
+  count()
+
+ans1 %>% arrange(-n)
+```
+
+# Problem 2 [20 pts]
+
+## Problem 2-a [10 pts]
+
+```{r ans2a}
+elec_format1 <- elec %>% 
+  filter(
+    str_detect(date, "-")
+  ) %>% 
+  mutate(
+    date_parsed = ymd(date)
+  )
+
+elec_format2 <- elec %>% 
+  filter(
+    str_detect(date, "/")
+  ) %>% 
+  mutate(
+    date_parsed = ymd(
+      str_c("2019", date, sep = "/")
+    )
+  )
+
+elec_tidy <- bind_rows(elec_format1, elec_format2) %>% 
+  arrange(date_parsed)
+
+head(elec_tidy, 10)
+```
+
+## Problem 2-b [10 pts]
+
+```{r ans2b-check_duplicate_or_missing}
+elec_tidy %>% 
+  mutate(
+    day_diff = date_parsed - lag(date_parsed)
+  ) %>% 
+  filter(
+    day_diff != 1
+  )
+
+elec_summary <- elec_tidy %>% 
+  mutate(
+    month = month(date_parsed)
+  ) %>% 
+  filter(
+    month != 4,
+    month != 5
+  ) %>% 
+  group_by(month) %>% 
+  summarize(
+    mean_consumption = mean(consumption)
+  )
+```
+
+```{r ans2b-show_summary}
+elec_summary
+```
+
+# Problem 3 [20 pts]
+
+## Problem 3-a [8 pts]
+
+```{r ans3a}
+
+monte_carlo <- function(N) {
+  x <- runif(N, -2, 2)
+  y <- runif(N, 0, 1.3)
+  
+  fx <- (1 + x^2)*exp(-1/2*x^2)
+  
+  return(mean(y <= fx)*4*1.3)
+}
+
+```
+
+```{r}
+
+# To check your answer! (This may not be that similar with value in above.)
+
+set.seed(1127) # DO NOT CHANGE THE SEED NUMBER!
+
+monte_carlo(10000)
+
+monte_carlo(100000)
+
+monte_carlo(1000000)
+
+monte_carlo(10000000)
+
+```
+
+## Problem 3-b [12 pts]
+
+```{r ans3b}
+
+riemann_sum <- function(tol) {
+  
+  k <- 0
+  diff <- Inf
+  s_k_1 <- 0
+  
+  while (diff > tol) {
+    
+    partition <- seq(-2, 2, length.out = (2^k + 1))
+    
+    s_k <- (sum((1 + partition^2)*exp(-1/2*partition^2)) - (1 + 2^2)*exp(-1/2*2^2))*(2^(2-k))
+    
+    diff <- abs(s_k - s_k_1)
+    
+    k <- k + 1
+    s_k_1 <- s_k
+  }
+  
+  return (s_k)
+}
+
+```
+
+```{r}
+
+# To check your answer!
+
+riemann_sum(1e-03)
+
+riemann_sum(1e-04)
+
+riemann_sum(1e-05)
+
+```

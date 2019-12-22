@@ -1,0 +1,898 @@
+---
+title: "Assignment3"
+author: "jessekim"
+date: "10/26/2019"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(UsingR)
+library(tidyverse)
+cps <- readxl::read_excel("./data/CPS96_15.xlsx")
+bws <- readxl::read_excel("./data/birthweight_smoking.xlsx")
+eah <- readxl::read_excel("./data/Earnings_and_Height.xlsx")
+```
+
+# 2013-11086 Chankyu Kim
+# Assignment 3
+
+---
+
+### 1. EE3.1
+
+```{r}
+head(cps)
+```
+
+#### a.
+
+```{r}
+(cps_params <- cps %>% 
+  group_by(year) %>% 
+  dplyr::summarize(
+    n = n(),
+    mean_ahe = mean(ahe),
+    sd_ahe = sd(ahe),
+    se_ahe = sd_ahe/sqrt(n),
+    inf_ci = mean_ahe - 1.96*se_ahe,
+    sup_ci = mean_ahe + 1.96*se_ahe
+  ))
+```
+
+i.
+
+> Sample mean for AHE in 1996: 12.69.
+> Sample mean for AHE in 2015: 21.24.
+
+ii.
+
+> Sample standard deviation for AHE in 1996: 6.36.
+> Sample standard deviation for AHE in 2015: 12.12.
+
+iii.
+
+> CI for the pop mean of AHE in 1996: (12.53, 12.85).
+> CI for the pop mean of AHE in 2015: (20.96, 21.52).
+
+iv.
+
+```{r}
+tibble(
+  mean_diff = cps_params[["mean_ahe"]][2] - cps_params[["mean_ahe"]][1],
+  se_diff = sqrt(cps_params[["se_ahe"]][2]^2 + cps_params[["se_ahe"]][1]^2),
+  inf_ci = mean_diff - 1.96*se_diff,
+  sup_ci = mean_diff + 1.96*se_diff
+)
+```
+
+> CI for the change in the pop mean of AHE: (8.22, 8.87).
+
+#### b.
+
+Adjustment: 
+
+```{r}
+cpi <- tibble(
+  year = c(1996, 2015),
+  cpi = c(156.9, 237.0)
+)
+
+cps_adj <- cps %>% 
+  inner_join(cpi, by = c("year")) %>% 
+  mutate(ahe_adj = ahe*237/cpi)
+
+head(cps_adj)
+```
+
+```{r}
+(cps_adj_params <- cps_adj %>% 
+  group_by(year) %>% 
+  dplyr::summarize(
+    n = n(),
+    mean_ahe = mean(ahe_adj),
+    sd_ahe = sd(ahe_adj),
+    se_ahe = sd_ahe/sqrt(n),
+    inf_ci = mean_ahe - 1.96*se_ahe,
+    sup_ci = mean_ahe + 1.96*se_ahe
+  ))
+```
+
+i.
+
+> Sample mean for adjusted AHE in 1996: 19.17.
+> Sample mean for adjusted AHE in 2015: 21.24.
+
+ii.
+
+> Sample standard deviation for adjusted AHE in 1996: 9.61.
+> Sample standard deviation for adjusted AHE in 2015: 12.12.
+
+iii.
+
+> CI for the pop mean of adjusted AHE in 1996: (18.93, 19.41).
+> CI for the pop mean of adjusted AHE in 2015: (20.96, 21.52).
+
+iv.
+
+```{r}
+tibble(
+  mean_diff = cps_adj_params[["mean_ahe"]][2] - cps_adj_params[["mean_ahe"]][1],
+  se_diff = sqrt(cps_adj_params[["se_ahe"]][2]^2 + cps_adj_params[["se_ahe"]][1]^2),
+  inf_ci = mean_diff - 1.96*se_diff,
+  sup_ci = mean_diff + 1.96*se_diff
+)
+```
+
+> CI for the change in the pop mean of adjusted AHE: (1.69, 2.44).
+
+#### c.
+
+> Note that the prices of the commodities change year by year. Thus the results from (b), adjusted by CPI(Customer Price Index), reflects real purchasing power of the commodities better.
+
+#### d.
+
+```{r}
+(ahe_2015_bch <- cps_adj %>% 
+  filter(year == 2015) %>% 
+  group_by(bachelor) %>% 
+  dplyr::summarize(
+    n = n(),
+    mean_ahe = mean(ahe_adj),
+    se_ahe = sd(ahe_adj)/sqrt(n),
+    inf_ci = mean_ahe - 1.96*se_ahe,
+    sup_ci = mean_ahe + 1.96*se_ahe
+  ))
+```
+
+i.
+
+> CI for the mean of AHE for high schoolers: (16.09, 16.67).
+
+ii.
+
+> CI for the mean of AHE for college graudates: (25.19, 26.04).
+
+iii.
+
+```{r}
+tibble(
+  mean_diff = ahe_2015_bch[["mean_ahe"]][2] - ahe_2015_bch[["mean_ahe"]][1],
+  se_diff = sqrt(ahe_2015_bch[["se_ahe"]][2]^2 + ahe_2015_bch[["se_ahe"]][1]^2),
+  inf_ci = mean_diff - 1.96*se_diff,
+  sup_ci = mean_diff + 1.96*se_diff
+)
+```
+
+> CI for the mean difference of AHE: (8.72, 9.75).
+
+#### e.
+
+```{r}
+(ahe_1996_bch <- cps_adj %>% 
+  filter(year == 1996) %>% 
+  group_by(bachelor) %>% 
+  dplyr::summarize(
+    n = n(),
+    mean_ahe = mean(ahe_adj),
+    se_ahe = sd(ahe_adj)/sqrt(n),
+    inf_ci = mean_ahe - 1.96*se_ahe,
+    sup_ci = mean_ahe + 1.96*se_ahe
+  ))
+```
+
+i.
+
+> CI for the mean of AHE for high schoolers: (16.01, 16.52).
+
+ii.
+
+> CI for the mean of AHE for college graudates: (22.64, 23.44).
+
+iv.
+
+```{r}
+tibble(
+  mean_diff = ahe_1996_bch[["mean_ahe"]][2] - ahe_1996_bch[["mean_ahe"]][1],
+  se_diff = sqrt(ahe_1996_bch[["se_ahe"]][2]^2 + ahe_1996_bch[["se_ahe"]][1]^2),
+  inf_ci = mean_diff - 1.96*se_diff,
+  sup_ci = mean_diff + 1.96*se_diff
+)
+```
+
+> CI for the mean difference of AHE: (6.29, 7.25).
+
+#### f.
+
+```{r}
+(cps_year_bach <- cps_adj %>% 
+  group_by(year, bachelor) %>% 
+  dplyr::summarize(
+    n = n(),
+    mean_ahe = mean(ahe_adj),
+    se_ahe = sd(ahe_adj)/sqrt(n)
+  ))
+```
+
+i.
+
+```{r}
+mean_chg_high <- cps_year_bach[["mean_ahe"]][3] - cps_year_bach[["mean_ahe"]][1]
+se_chg_high <- sqrt(cps_year_bach[["se_ahe"]][3]^2 + cps_year_bach[["se_ahe"]][1]^2)
+t_chg_high <- mean_chg_high/se_chg_high
+sprintf("T statistic for change in ahe for high school graduates is %.4f", t_chg_high)
+```
+
+> So there is no statistically significance evidence that AHE for high school graduates increased from 1996 to 2015.
+
+```{r}
+mean_chg_coll <- cps_year_bach[["mean_ahe"]][4] - cps_year_bach[["mean_ahe"]][2]
+se_chg_coll <- sqrt(cps_year_bach[["se_ahe"]][4]^2 + cps_year_bach[["se_ahe"]][2]^2)
+t_chg_coll <- mean_chg_coll/se_chg_coll
+sprintf("T statistic for change in ahe for college graduates is %.4f", t_chg_coll)
+```
+
+> So there is statistically significance evidence that AHE for college graduates increased from 1996 to 2015.
+
+```{r}
+mean_chg_diff <- mean_chg_coll - mean_chg_high
+se_chg_diff <- sqrt(se_chg_coll^2 + se_chg_high^2)
+t_chg_diff <- mean_chg_diff/se_chg_diff
+sprintf("T statistic for change in ahe gap is %.4f", t_chg_diff)
+```
+
+> So there is statistically significance evidence that AHE gap increased from 1996 to 2015.
+
+#### g.
+
+##### Gender gap for high school graudates
+
+```{r}
+gender_gap <- cps_adj %>%
+  filter(bachelor == 0) %>% 
+  group_by(year, female) %>% 
+  dplyr::summarise(
+    mean = round(mean(ahe_adj), 2),
+    sd = round(sd(ahe_adj), 2),
+    n = n()
+  )
+
+mean_diff_1996 <- gender_gap[["mean"]][1] - gender_gap[["mean"]][2]
+mean_diff_2015 <- gender_gap[["mean"]][3] - gender_gap[["mean"]][4]
+
+se_diff_1996 <- sqrt(
+  gender_gap[["sd"]][1]^2/gender_gap[["n"]][1] + gender_gap[["sd"]][2]^2/gender_gap[["n"]][2]
+)
+se_diff_2015 <- sqrt(
+  gender_gap[["sd"]][3]^2/gender_gap[["n"]][3] + gender_gap[["sd"]][4]^2/gender_gap[["n"]][4]
+)
+
+diff <- tibble(
+  year = c(1996, 2015),
+  mean = round(c(mean_diff_1996, mean_diff_2015), 2),
+  se = round(c(se_diff_1996, se_diff_2015), 2),
+  CI = sprintf(
+    "%.2f~%.2f", 
+    round(c(mean_diff_1996 - 1.96*se_diff_1996, mean_diff_2015 - 1.96*se_diff_2015), 2),
+    round(c(mean_diff_1996 + 1.96*se_diff_1996, mean_diff_2015 + 1.96*se_diff_2015), 2)
+  )
+)
+
+gender_gap %>% 
+  filter(female == 0) %>% 
+  left_join(
+    gender_gap %>% 
+      filter(female == 1),
+    by = c("year"),
+    suffix = c("(M)", "(W)")
+  ) %>% 
+  left_join(
+    diff,
+    by = "year"
+  ) %>% 
+  dplyr::select(-c("female(M)", "female(W)"))
+
+```
+
+##### Gender gap for college graudates
+
+```{r}
+gender_gap_coll <- cps_adj %>%
+  filter(bachelor == 1) %>% 
+  group_by(year, female) %>% 
+  dplyr::summarise(
+    mean = round(mean(ahe_adj), 2),
+    sd = round(sd(ahe_adj), 2),
+    n = n()
+  )
+
+mean_diff_1996_coll <- gender_gap_coll[["mean"]][1] - gender_gap_coll[["mean"]][2]
+mean_diff_2015_coll <- gender_gap_coll[["mean"]][3] - gender_gap_coll[["mean"]][4]
+
+se_diff_1996_coll <- sqrt(
+  gender_gap_coll[["sd"]][1]^2/gender_gap_coll[["n"]][1] + gender_gap_coll[["sd"]][2]^2/gender_gap_coll[["n"]][2]
+)
+se_diff_2015_coll <- sqrt(
+  gender_gap_coll[["sd"]][3]^2/gender_gap_coll[["n"]][3] + gender_gap_coll[["sd"]][4]^2/gender_gap_coll[["n"]][4]
+)
+
+diff_coll <- tibble(
+  year = c(1996, 2015),
+  mean_diff = round(c(mean_diff_1996_coll, mean_diff_2015_coll), 2),
+  se_diff = round(c(se_diff_1996_coll, se_diff_2015_coll), 2),
+  CI = sprintf(
+    "%.2f~%.2f",
+    round(c(mean_diff_1996_coll - 1.96*se_diff_1996_coll, mean_diff_2015_coll - 1.96*se_diff_2015_coll), 2),
+    round(c(mean_diff_1996_coll + 1.96*se_diff_1996_coll, mean_diff_2015_coll + 1.96*se_diff_2015_coll), 2)
+  )
+)
+
+gender_gap_coll %>% 
+  filter(female == 0) %>% 
+  left_join(
+    gender_gap_coll %>% 
+      filter(female == 1),
+    by = c("year"),
+    suffix = c("(M)", "(W)")
+  ) %>% 
+  left_join(
+    diff_coll,
+    by = "year"
+  ) %>% 
+  dplyr::select(-c("female(M)", "female(W)"))
+```
+
+> As the gender gap for college graduates increased from 1996 (3.88) to 2015 (5.02), the gender gap for high school graduates decreased from 1996 (4.02) to 2015 (3.29). For all periods, the gender gaps for college/high school graduates are both statistically significant.
+
+---
+
+### 2. EE4.2
+
+```{r}
+head(eah)
+```
+
+#### a.
+
+```{r}
+eah[["height"]] %>% median()
+```
+
+> The median value is 67.
+
+#### b.
+
+```{r}
+(eah_params <- eah %>%
+  mutate(is_tall = height > 67) %>% 
+  group_by(is_tall) %>% 
+  dplyr::summarize(
+    n = n(),
+    mean_earnings = mean(earnings),
+    se_earnings = sd(earnings)/sqrt(n)
+  ))
+```
+
+i.
+
+> The sample mean of earnings for workers who are not tall: 44,488.44.
+
+ii.
+
+> The sample mean of earnings for workers who are tall: 49,987.88.
+
+iii.
+
+```{r}
+tibble(
+  mean_diff = eah_params[["mean_earnings"]][2] - eah_params[["mean_earnings"]][1],
+  se_diff = sqrt(eah_params[["se_earnings"]][2]^2 + eah_params[["se_earnings"]][1]^2),
+  inf_ci = mean_diff - 1.96*se_diff,
+  sup_ci = mean_diff + 1.96*se_diff
+)
+
+```
+
+> The mean difference between the workers who are tall and not tall is 5,499.44. The taller workers earn more in average, by 5,499.44.
+> The CI for the difference is (4,706.28, 6,292.60)
+
+#### c.
+
+```{r}
+ggplot(eah, aes(height, earnings)) +
+  geom_point()
+```
+
+> Data description says that the earnings data is reported in 23 brackets. So the scatter plot shows 23 horizontal lines.
+
+#### d.
+
+```{r}
+lm_height <- lm(earnings~height, eah)
+summary(lm_height)
+```
+
+i.
+
+> The estimated slope is 707.67.
+
+ii.
+
+> Note that the estimation model: $Y = -512.73 + 707.67X$.
+> The estimated earning for 67 inches: -512.73 + 707.67*67 = 46,901.16.
+> The estimated earning for 70 inches: -512.73 + 707.67*70 = 49,024.17.
+> The estimated earning for 65 inches: -512.73 + 707.67*65 = 45,485.82.
+
+#### e.
+
+i.
+
+> Note that
+
+$$
+X_{centimeter} = 2.54*X_{inch} \rightarrow \frac{X_{centimeter}}{2.54} = X_{inch}
+$$
+
+> Thus the slope would be 707.67/2.54 = 278.61
+
+ii.
+
+> The intercept would remain same as -512.73.
+
+iii.
+
+> R-squared would remain same as 0.01088, because the error term is not affected.
+
+iv.
+
+> Standard error of the regression would remain same, as 26780.
+
+> However, standard error of the estimated coefficient for height would be
+
+$$
+SE(\beta_{centimeter}) = SE(\beta_{inch})/2.54 = 19.88
+$$
+
+> We can check!
+
+```{r}
+eah_in_centimeter <- eah %>% 
+  mutate(height_in_centimeter = height*2.54)
+
+lm_height_in_centimeter <- lm(earnings~height_in_centimeter, eah_in_centimeter)
+summary(lm_height_in_centimeter)
+```
+
+#### f.
+
+```{r}
+eah_female <- eah %>% filter(sex == 0)
+
+lm_height_female <- lm(earnings~height, eah_female)
+summary(lm_height_female)
+```
+
+i.
+
+> The estimated slope is 511.2.
+
+ii.
+
+> The predicted earning would be 511.2 more than the average.
+
+#### g.
+
+```{r}
+eah_male <- eah %>% filter(sex == 1)
+
+lm_height_male <- lm(earnings~height, eah_male)
+summary(lm_height_male)
+```
+
+i.
+
+> The estimated slope is 1,306.9.
+
+ii.
+
+> The predicted earning would be 1,306.9 more than the average.
+
+#### h.
+
+> `Height` would be severly correlated with `sex`. `Height` also is expected to have correlation with `race`, `region`, `economic background` and so on. Thus the conditional mean of error term given Height would not be 0 in the situation.
+
+---
+
+### 3. EE5.1
+
+#### a.
+
+```{r}
+summary(lm_height)
+
+sprintf(
+  "CI for the slope is (%.4f, %.4f)",
+  707.67 - 1.96*50.49,
+  707.67 + 1.96*50.49
+)
+```
+
+i.
+
+> The p-value for the slope is small enough (2e-16) to say significance.
+
+ii.
+
+> CI for the slope is (608.7096, 806.6304).
+
+#### b.
+
+```{r}
+summary(lm_height_female)
+
+sprintf(
+  "CI for the slope is (%.4f, %.4f)",
+  511.2 - 1.96*98.9,
+  511.2 + 1.96*98.9
+)
+```
+
+i.
+
+> The p-value for the slope is small enough (2.4e-07) to say significance.
+
+ii.
+
+> CI for the slope is (317.3560, 705.0440).
+
+#### c.
+
+```{r}
+summary(lm_height_male)
+
+sprintf(
+  "CI for the slope is (%.4f, %.4f)",
+  1306.9 - 1.96*100.8,
+  1306.9 + 1.96*100.8
+)
+```
+
+i.
+
+> The p-value for the slope is small enough (2e-16) to say significance.
+
+ii.
+
+> CI for the slope is (1,109.3320, 1,504.4680).
+
+#### d.
+
+> The null hypothesis is: 
+
+$$
+\beta_{female} = \beta_{male}
+$$
+
+> and the opposite hypothesis is: 
+
+$$
+\beta_{female} \ne \beta_{male}
+$$
+
+```{r}
+diff <- 1306.9 - 511.2
+se_diff <- sqrt(98.9^2 + 100.8^2)
+
+(t_diff <- diff/se_diff)
+```
+
+> The t-statistic is big enough (5.63) to say that the effect of height for men is different from that of women. It is also statistically significant to say that the effect of height for men is bigger than that of women.
+
+#### e.
+
+> The occupations in which strength is unlikely to be important could be:
+> 1 = Exec/Manager
+> 2 = Professionals
+> 3 = Technicians
+> 5 = Administrat
+> 12 = Precision production
+> 
+> Let's regress on the sample with the occupations above.
+
+
+```{r}
+eah_intelli <- eah %>% 
+  filter(occupation %in% c(1, 2, 3, 5, 12))
+
+lm_height_intelli <- lm(earnings~height, eah_intelli)
+summary(lm_height_intelli)
+```
+
+> The effect of the height is still significant with p-value of 2e-16, and also its value is not that small. It seems the height of a worker is still important factor that determines his earning.
+
+---
+
+### 4. EE6.1
+
+```{r}
+head(bws)
+```
+
+#### a.
+
+```{r}
+lm_smoker <- lm(birthweight~smoker, bws)
+summary(lm_smoker)
+```
+
+> The estimated effect is -253.23 on birthweight.
+
+#### b.
+
+```{r}
+lm_bws_mul <- lm(birthweight~smoker+alcohol+nprevist, bws)
+summary(lm_bws_mul)
+```
+
+i.
+
+> Alcohol and Nprevist are expected to be correlated with Smoker, and expected to determine the birthweight at the same time. This is the condition of the presence of the omitted variable bias.
+
+ii.
+
+> The estimated effect in the excluded model is -253.23, and the effect in the included model is -217.580. That is, the estimated effect is about 15% different between the two models, which stands for the evidence of ommited variable bias.
+
+iii. 
+
+$$
+\hat{Y} = 3051.249 - 217.580*1 - 30.491*0 + 34.070*8 = 3,106.229
+$$
+
+iv. 
+
+> Note that 
+
+$$
+\bar{R^2} = 1 - \frac{n - 1}{n - k - 1}*(1 - R^2)
+$$
+
+> As the sample size gets bigger, the two parameters gets closer. So the two parameters are similar with about 3,000 rows of sample.
+
+v. 
+
+> The interpretation of the coefficient is that the birthweight with one more prenatal visit is 34.070 bigger in average, holding other variables constant. 
+
+> However, it's hard to say that prenatal visit has causal effect with the birthweight. Actually the number of prenatal visits works as control variable to dismiss correlation that causes ommited variable bias.
+
+#### c.
+
+```{r}
+x_on_others <- lm(smoker~alcohol+nprevist, bws)
+y_on_others <- lm(birthweight~alcohol+nprevist, bws)
+
+resid <- tibble(
+  x_resid = residuals(x_on_others),
+  y_resid = residuals(y_on_others)
+)
+
+lm_frisch_waugh <- lm(y_resid~x_resid, resid)
+summary(lm_frisch_waugh)
+```
+
+> We can see that -2.176e+02 ~= -217.580.
+
+#### d.
+
+```{r}
+lm_tripre <- lm(birthweight~smoker+alcohol+tripre0+tripre2+tripre3, bws)
+summary(lm_tripre)
+
+lm_tripre_temp <- lm(birthweight~smoker+alcohol+tripre0+tripre1+tripre2+tripre3, bws)
+summary(lm_tripre_temp)
+```
+
+i. 
+
+> Coeffifiecnt of Tripre3 cannot be calculated because of perfect multicollinearity. Note that Note that Tripre0 + Tripre1 + Tripre2 + Tripre3 = 1. To avoid the multicollinearity, one of the four variables should be excluded.
+
+ii. 
+
+> Tripre0 == 1 means that the mother has never had prenatal visit, which decreases the birthweight by 697.97 in average holding other variables constant. Specifically, the value means the mean difference of birthweight of the mother with 0 prenatal visit from that of 1 prenatal visit.
+
+iii. 
+
+> Each value stands for the mean difference of birthweight of the mother with 2/3 prenatal visits from that of 1.
+
+iv. 
+
+> Let's compare the squared R of the regressions. The squared R for regression in (b) is 0.07285, and for regression in (d) is 0.04647. The regression in (b) explains a larger fraction of the variance tha the regression in (d).
+
+---
+
+### 5. EE7.1
+
+Regression (1)
+```{r}
+summary(lm_smoker)
+```
+
+Regression (2)
+```{r}
+summary(lm_bws_mul)
+```
+
+Regression (3)
+```{r}
+lm_bws_mul2 <- lm(birthweight~smoker+alcohol+nprevist+unmarried, bws)
+summary(lm_bws_mul2)
+```
+
+#### a.
+
+> Regression (1): -253.23 / se=26.95
+> Regression (2): -217.580 / se=26.680
+> Regression (3): -175.377 / se=27.099
+
+#### b.
+
+```{r}
+sprintf(
+  "CI for regression (1) is (%.4f, %.4f)",
+  -253.23 - 1.96*26.95,
+  -253.23 + 1.96*26.95
+)
+
+sprintf(
+  "CI for regression (2) is (%.4f, %.4f)",
+  -217.580 - 1.96*26.680,
+  -217.580 + 1.96*26.680
+)
+
+sprintf(
+  "CI for regression (3) is (%.4f, %.4f)",
+  -175.377 - 1.96*27.099,
+  -175.377 + 1.96*27.099
+)
+```
+
+#### c.
+
+> Smoker would be correlated with Alcohol, which is expected to determine the birthweight. Thus, the regression coefficient would suffer from omitted variable bias.
+
+#### d.
+
+> Unmarried could be correlated with Smoker, and would determine the birthweight in indirect ways. For example, unmarried parent would have bad economic situation, lack of care, and so on. So the regression coefficient would suffer from omitted variable bias.
+
+#### e.
+
+i. 
+
+```{r}
+sprintf(
+  "CI is (%.4f, %.4f)",
+  -187.133 - 1.96*26.007,
+  -187.133 + 1.96*26.007
+)
+```
+
+ii. 
+
+> As the confidence interval does not contain 0, the coefficient is statistically significant.
+
+iii. 
+
+> The magnitude of the coefficient is even bigger than the coefficient of Smoker. Noting that the sample standard deviation of the sample is 592.1629, Unmarried affect 0.3 standard deviation of the birthweight. It is large.
+
+```{r}
+sd(bws[["birthweight"]])
+```
+
+iv. 
+
+> Unmarried in the regression is used as control variable which has a correlation with the error term, to dismiss the omitted variable bias. Thus the coefficient would be biased, and cannot be interpreted as causal effect.
+
+#### f.
+
+```{r}
+regressor_factor <- c(
+  "smoker",
+  "nprevist",
+  "unmarried",
+  "alcohol",
+  "educ",
+  "age",
+  "(Intercept)",
+  "-", 
+  "R-adj", 
+  "n"
+)
+
+make_reg_table <- function (reg) {
+  
+  summ <- summary(reg)
+  summ_coef <- summ$coefficients
+  
+  n_reg <- length(summ_coef[, 1:2])/2
+  
+  coeffs <- c()
+  
+  for (i in 1:n_reg) {
+    coef <- summ_coef[i]
+    se_coef <- summ_coef[n_reg + i]
+    
+    t_val <- abs(coef/se_coef)
+    
+    if (t_val >= 2.58) {
+      sf <- "***"
+    } else if (t_val >= 1.96) {
+      sf <- "**"
+    } else if (t_val >= 1.645) {
+      sf <- "*"
+    } else {
+      sf <- ""
+    }
+    
+    coeffs <- c(coeffs, sprintf("%.1f(%.1f)%s", coef, se_coef, sf))
+  }
+  
+  tibble(
+    regressor = factor(c(dimnames(summ_coef)[[1]], "-", "R-adj", "n"), regressor_factor),
+    value = c(coeffs, "-", round(summ$adj.r.squared, 4), 3000)
+  )
+}
+
+reg1 <- lm(birthweight~smoker, bws)
+reg2 <- lm(birthweight~smoker+nprevist+unmarried, bws)
+reg3 <- lm(birthweight~smoker+nprevist+unmarried+alcohol, bws)
+reg4 <- lm(birthweight~smoker+nprevist+unmarried+educ, bws)
+reg5 <- lm(birthweight~smoker+nprevist+unmarried+age, bws)
+reg6 <- lm(birthweight~smoker+nprevist+unmarried+alcohol+educ+age, bws)
+
+for (i in 1:6) {
+  assign(
+    sprintf("reg%i_table", i),
+    make_reg_table(get(sprintf("reg%i", i)))
+  )
+}
+
+reg1_table %>% 
+  full_join(
+    reg2_table,
+    by = c("regressor")
+  ) %>% 
+  full_join(
+    reg3_table,
+    by = c("regressor")
+  ) %>% 
+  full_join(
+    reg4_table,
+    by = c("regressor")
+  ) %>% 
+  full_join(
+    reg5_table,
+    by = c("regressor")
+  ) %>% 
+  full_join(
+    reg6_table,
+    by = c("regressor")
+  ) %>% 
+  arrange(
+    regressor
+  ) %>% 
+  rename(
+    "(1)" = value.x,
+    "(2)" = value.y,
+    "(3)" = value.x.x,
+    "(4)" = value.y.y,
+    "(5)" = value.x.x.x,
+    "(6)" = value.y.y.y
+  )
+
+```
+
+> Other variables like `alcohol`, `educ`, `age` seem to have insignificant affect on birthweight. And taking a look at the first row, the coefficient of `smoker` is about -177~-176 for regression (2)~(6), which is robust. Thus, the confidence interval for regression (3) in (b), which is (-228.4910, -122.2630) seems to be reasonable.
+
+
